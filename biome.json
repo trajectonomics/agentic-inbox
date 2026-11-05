@@ -25,36 +25,28 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"a11y": {
-				"noLabelWithoutControl": "off",
-				"useSemanticElements": "off"
-			},
 			"complexity": {
-				"noExcessiveCognitiveComplexity": "off",
-				"noUselessFragments": "off",
-				"useLiteralKeys": "off",
-				"useMathMinMax": "off",
-				"useOptionalChain": "off"
+				"noExcessiveCognitiveComplexity": {
+					"level": "error",
+					"options": { "maxAllowedComplexity": 10 }
+				},
+				"useLiteralKeys": "off"
 			},
 			"correctness": {
-				"noUnusedFunctionParameters": "off",
 				"noUnusedImports": "error",
 				"noUnusedVariables": "error"
 			},
-			"performance": {
-				"useDomNodeTextContent": "off"
-			},
 			"style": {
-				"noExcessiveLinesPerFile": "off",
+				"noExcessiveLinesPerFile": {
+					"level": "error",
+					"options": { "maxLines": 100, "skipBlankLines": true }
+				},
 				"noNonNullAssertion": "off",
 				"useImportType": "error",
 				"useExportType": "error"
 			},
 			"suspicious": {
-				"noAssignInExpressions": "off",
-				"noControlCharactersInRegex": "off",
-				"noExplicitAny": "off",
-				"noGlobalIsNan": "off",
+				"noExplicitAny": "error",
 				"noImplicitAnyLet": "error"
 			}
 		}
@@ -69,6 +61,38 @@
 							"level": "error",
 							"options": { "maxLines": 200, "skipBlankLines": true }
 						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["app/**", "workers/**"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noLabelWithoutControl": "off",
+						"useSemanticElements": "off"
+					},
+					"complexity": {
+						"noExcessiveCognitiveComplexity": "off",
+						"noUselessFragments": "off",
+						"useMathMinMax": "off",
+						"useOptionalChain": "off"
+					},
+					"correctness": {
+						"noUnusedFunctionParameters": "off"
+					},
+					"performance": {
+						"useDomNodeTextContent": "off"
+					},
+					"style": {
+						"noExcessiveLinesPerFile": "off"
+					},
+					"suspicious": {
+						"noAssignInExpressions": "off",
+						"noControlCharactersInRegex": "off",
+						"noExplicitAny": "off",
+						"noGlobalIsNan": "off"
 					}
 				}
 			}

@@ -15,7 +15,7 @@ function safeParse(dateStr: string | undefined | null): Date | null {
 	if (!dateStr) return null
 	try {
 		const d = new Date(dateStr)
-		return isNaN(d.getTime()) ? null : d
+		return Number.isNaN(d.getTime()) ? null : d
 	} catch {
 		return null
 	}

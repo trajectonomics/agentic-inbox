@@ -21,6 +21,12 @@ Binary file content associated with an email. Stored in Cloudflare R2 object sto
 
 ## System & Infrastructure
 
+### Durable Object
+Cloudflare's strongly consistent distributed actor model providing compute and co-located persistent SQLite storage. In this project, each mailbox, AI agent, and MCP interface runs inside dedicated Durable Object instances.
+
+### R2
+Cloudflare's S3-compatible, zero-egress-fee distributed object storage used to store binary email attachment payloads.
+
 ### MailboxDO
 A Cloudflare Durable Object managing SQLite tables (via Drizzle ORM) for emails, threads, folders, and attachments for a specific mailbox.
 

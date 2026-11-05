@@ -11,6 +11,12 @@ Instructions for AI coding agents in `trajectonomics/agentic-inbox` (`agentic-in
 5. Done means `bun run check` passes (`bun run lint`, `bun run typecheck`, `bun run test`, `bun run build`). `bun run format` fixes formatting and import order. Do not loosen `biome.json` simply to silence an error.
 6. PR titles are conventional commits (`feat:`, `fix:`, `chore:`, etc.) because CI validates them (`.github/workflows/pr-title.yml`).
 
+## Secrets & Environment Variables
+
+- Never commit secrets, `.env` files, or Cloudflare API tokens / credentials.
+- Use `wrangler secret put <KEY>` for production/staging secrets.
+- For local development, use `.dev.vars` (modeled after `.dev.vars.example`) and ensure `.dev.vars` is never committed to source control.
+
 ## Scope & Architecture
 
 `agentic-inbox` is a self-hosted email client and autonomous AI inbox agent running on Cloudflare Workers and React Router v7.

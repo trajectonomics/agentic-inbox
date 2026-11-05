@@ -4,9 +4,10 @@ Read at **review** time. `bun run check` already enforces mechanical rules (form
 
 Decisions behind the architecture live in `docs/adr/`; domain vocabulary lives in `GLOSSARY.md`.
 
-## Public API & Schemas
+## Public API & Domain Error Codes
 
 - Every exported function, helper, or schema carries a concise JSDoc comment stating what it **is**, not just how it works internally.
+- A rule that can reject input gets its own domain error code enum/union. One code per rule: never widen an existing code's meaning, and never let two distinct rules share one.
 - Payloads passing between the frontend, Cloudflare Workers, and Durable Objects must have runtime validation via explicit Zod schemas in `workers/lib/schemas.ts`.
 - Values returned from shared domain helpers are immutable. Caller-supplied objects are never mutated in place.
 - Errors thrown or returned from API routes mirror caller-supplied field paths rather than internal SQLite or Worker variable names.

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test"
 import { Folders, getFolderDisplayName, SYSTEM_FOLDER_IDS } from "./folders"
 
-describe("folders", () => {
-	it("exposes canonical folder constants", () => {
+describe("folders domain model", () => {
+	it("exposes canonical system folder identifiers", () => {
 		expect(Folders.INBOX).toBe("inbox")
 		expect(Folders.SENT).toBe("sent")
 		expect(Folders.DRAFT).toBe("draft")
@@ -11,7 +11,7 @@ describe("folders", () => {
 		expect(Folders.SPAM).toBe("spam")
 	})
 
-	it("maintains expected sidebar order in SYSTEM_FOLDER_IDS without spam", () => {
+	it("excludes spam from standard sidebar navigation ordering", () => {
 		expect(SYSTEM_FOLDER_IDS).toEqual([
 			Folders.INBOX,
 			Folders.SENT,
@@ -19,17 +19,18 @@ describe("folders", () => {
 			Folders.ARCHIVE,
 			Folders.TRASH,
 		])
-		expect(SYSTEM_FOLDER_IDS.includes(Folders.SPAM as any)).toBe(false)
+		const folderIds: readonly string[] = SYSTEM_FOLDER_IDS
+		expect(folderIds.includes(Folders.SPAM)).toBe(false)
 	})
 
-	it("returns standard display names regardless of casing", () => {
+	it("normalizes mixed-case folder identifiers to standard display titles", () => {
 		expect(getFolderDisplayName("inbox")).toBe("Inbox")
 		expect(getFolderDisplayName("INBOX")).toBe("Inbox")
 		expect(getFolderDisplayName("sent")).toBe("Sent")
 		expect(getFolderDisplayName("draft")).toBe("Drafts")
 	})
 
-	it("capitalizes unknown custom folder IDs as fallback", () => {
+	it("capitalizes user-defined custom folder names as fallback", () => {
 		expect(getFolderDisplayName("receipts")).toBe("Receipts")
 		expect(getFolderDisplayName("newsletter")).toBe("Newsletter")
 	})
