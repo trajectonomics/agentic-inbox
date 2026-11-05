@@ -2,13 +2,13 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import DOMPurify from "dompurify";
-import { useCallback, useEffect, useRef, useState } from "react";
+import DOMPurify from "dompurify"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 interface EmailIframeProps {
-	body: string;
+	body: string
 	/** When true, iframe auto-sizes to content height instead of filling parent */
-	autoSize?: boolean;
+	autoSize?: boolean
 }
 
 /**
@@ -28,15 +28,15 @@ interface EmailIframeProps {
  *   iframe as a defense-in-depth layer.
  */
 export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
-	const iframeRef = useRef<HTMLIFrameElement>(null);
-	const [height, setHeight] = useState(autoSize ? 100 : 0);
+	const iframeRef = useRef<HTMLIFrameElement>(null)
+	const [height, setHeight] = useState(autoSize ? 100 : 0)
 
 	// Listen for height reports from the sandboxed iframe
 	const handleMessage = useCallback(
 		(event: MessageEvent) => {
-			if (!autoSize) return;
+			if (!autoSize) return
 			// Only accept messages from our own iframe
-			if (event.source !== iframeRef.current?.contentWindow) return;
+			if (event.source !== iframeRef.current?.contentWindow) return
 			if (
 				event.data &&
 				typeof event.data === "object" &&
@@ -44,29 +44,29 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 				typeof event.data.height === "number" &&
 				event.data.height > 0
 			) {
-				setHeight(event.data.height);
+				setHeight(event.data.height)
 			}
 		},
 		[autoSize],
-	);
+	)
 
 	useEffect(() => {
-		window.addEventListener("message", handleMessage);
-		return () => window.removeEventListener("message", handleMessage);
-	}, [handleMessage]);
+		window.addEventListener("message", handleMessage)
+		return () => window.removeEventListener("message", handleMessage)
+	}, [handleMessage])
 
 	useEffect(() => {
-		const iframe = iframeRef.current;
-		if (!iframe || !body) return;
+		const iframe = iframeRef.current
+		if (!iframe || !body) return
 
 		const cleanBody = DOMPurify.sanitize(body, {
 			USE_PROFILES: { html: true },
 			FORBID_TAGS: ["style"],
 			ADD_ATTR: ["target"],
 			FORCE_BODY: true,
-		});
+		})
 
-		const padding = autoSize ? "0" : "24px";
+		const padding = autoSize ? "0" : "24px"
 
 		// Height-reporting script: sends body.scrollHeight to the parent.
 		// Runs inside the opaque-origin sandbox so it has zero access to
@@ -81,8 +81,8 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 				setTimeout(reportHeight, 50);
 				setTimeout(reportHeight, 150);
 				setTimeout(reportHeight, 400);
-			<\/script>`
-			: "";
+			</script>`
+			: ""
 
 		// Use srcdoc so the iframe is truly sandboxed (no same-origin access).
 		// We can't use doc.write() because that requires allow-same-origin.
@@ -136,8 +136,8 @@ ul, ol { padding-left: 20px; margin: 4px 0; }
 </style>
 </head>
 <body>${cleanBody}${heightScript}</body>
-</html>`;
-	}, [body, autoSize]);
+</html>`
+	}, [body, autoSize])
 
 	return (
 		<iframe
@@ -147,5 +147,5 @@ ul, ol { padding-left: 20px; margin: 4px 0; }
 			sandbox="allow-scripts allow-popups allow-top-navigation-by-user-activation"
 			title="Email content"
 		/>
-	);
+	)
 }

@@ -11,8 +11,7 @@ export const queryKeys = {
 	emails: {
 		list: (mailboxId: string, params: Record<string, string>) =>
 			["emails", mailboxId, params] as const,
-		detail: (mailboxId: string, emailId: string) =>
-			["emails", mailboxId, emailId] as const,
+		detail: (mailboxId: string, emailId: string) => ["emails", mailboxId, emailId] as const,
 		thread: (mailboxId: string, threadId: string) =>
 			["emails", mailboxId, "thread", threadId] as const,
 	},
@@ -24,4 +23,4 @@ export const queryKeys = {
 			["search", mailboxId, query, page] as const,
 	},
 	config: ["config"] as const,
-};
+}

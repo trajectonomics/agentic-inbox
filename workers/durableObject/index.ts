@@ -2,14 +2,14 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { DurableObject } from "cloudflare:workers";
-import { drizzle } from "drizzle-orm/durable-sqlite";
-import { eq, and, or, asc, desc, sql } from "drizzle-orm";
-import type { SQL } from "drizzle-orm";
-import * as schema from "../db/schema";
-import { Folders } from "../../shared/folders";
-import type { Env } from "../types";
-import { applyMigrations, mailboxMigrations } from "./migrations";
+import { DurableObject } from "cloudflare:workers"
+import type { SQL } from "drizzle-orm"
+import { and, asc, desc, eq, or, sql } from "drizzle-orm"
+import { drizzle } from "drizzle-orm/durable-sqlite"
+import { Folders } from "../../shared/folders"
+import * as schema from "../db/schema"
+import type { Env } from "../types"
+import { applyMigrations, mailboxMigrations } from "./migrations"
 
 /**
  * SQL expression to normalize email subjects by stripping common
@@ -21,7 +21,7 @@ const NORMALIZED_SUBJECT_SQL = `LOWER(TRIM(
 		LOWER(subject),
 		'aw: ', ''), 'wg: ', ''), 'réf: ', ''), 'sv: ', ''),
 		're: ', ''), 'fwd: ', ''), 'fw: ', '')
-))`;
+))`
 
 const ALLOWED_SORT_COLUMNS = [
 	"id",
@@ -31,9 +31,9 @@ const ALLOWED_SORT_COLUMNS = [
 	"date",
 	"read",
 	"starred",
-] as const;
+] as const
 
-type SortColumn = (typeof ALLOWED_SORT_COLUMNS)[number];
+type SortColumn = (typeof ALLOWED_SORT_COLUMNS)[number]
 
 /**
  * Map SortColumn string names to Drizzle column references for safe
@@ -47,66 +47,66 @@ const SORT_COLUMN_MAP = {
 	date: schema.emails.date,
 	read: schema.emails.read,
 	starred: schema.emails.starred,
-} satisfies Record<SortColumn, typeof schema.emails[keyof typeof schema.emails]>;
+} satisfies Record<SortColumn, (typeof schema.emails)[keyof typeof schema.emails]>
 
 interface SearchFilterOptions {
-	query: string;
-	folder?: string;
-	from?: string;
-	to?: string;
-	subject?: string;
-	date_start?: string;
-	date_end?: string;
-	is_read?: boolean;
-	is_starred?: boolean;
-	has_attachment?: boolean;
+	query: string
+	folder?: string
+	from?: string
+	to?: string
+	subject?: string
+	date_start?: string
+	date_end?: string
+	is_read?: boolean
+	is_starred?: boolean
+	has_attachment?: boolean
 }
 
 interface GetEmailsOptions {
-	folder?: string;
-	thread_id?: string;
-	page?: number;
-	limit?: number;
-	sortColumn?: SortColumn;
-	sortDirection?: "ASC" | "DESC";
+	folder?: string
+	thread_id?: string
+	page?: number
+	limit?: number
+	sortColumn?: SortColumn
+	sortDirection?: "ASC" | "DESC"
 }
 
 interface EmailData {
-	id: string;
-	subject: string;
-	sender: string;
-	recipient: string;
-	cc?: string | null;
-	bcc?: string | null;
-	date: string;
-	body: string;
-	read?: boolean;
-	starred?: boolean;
-	in_reply_to?: string | null;
-	email_references?: string | null;
-	thread_id?: string | null;
-	message_id?: string | null;
-	raw_headers?: string | null;
+	id: string
+	subject: string
+	sender: string
+	recipient: string
+	cc?: string | null
+	bcc?: string | null
+	date: string
+	body: string
+	read?: boolean
+	starred?: boolean
+	in_reply_to?: string | null
+	email_references?: string | null
+	thread_id?: string | null
+	message_id?: string | null
+	raw_headers?: string | null
 }
 
 interface AttachmentData {
-	id: string;
-	email_id: string;
-	filename: string;
-	mimetype: string;
-	size: number;
-	content_id?: string | null;
-	disposition?: string | null;
+	id: string
+	email_id: string
+	filename: string
+	mimetype: string
+	size: number
+	content_id?: string | null
+	disposition?: string | null
 }
 
 export class MailboxDO extends DurableObject<Env> {
-	declare __DURABLE_OBJECT_BRAND: never;
-	db: ReturnType<typeof drizzle>;
+	declare __DURABLE_OBJECT_BRAND: never
+	db: ReturnType<typeof drizzle>
 
 	constructor(state: DurableObjectState, env: Env) {
-		super(state, env);
-		this.db = drizzle(this.ctx.storage, { schema });
-		applyMigrations(this.ctx.storage.sql, mailboxMigrations, this.ctx.storage);
+		super(state, env)
+		this.db = drizzle(this.ctx.storage, { schema })
+		applyMigrations(this.ctx.storage.sql, mailboxMigrations, this.ctx.storage)
 	}
 
 	// ── Email CRUD (Drizzle) ───────────────────────────────────────
@@ -119,31 +119,29 @@ export class MailboxDO extends DurableObject<Env> {
 			limit: rawLimit = 25,
 			sortColumn: rawSortColumn = "date",
 			sortDirection = "DESC",
-		} = options;
+		} = options
 
 		// Cap pagination limit to prevent unbounded queries
-		const limit = Math.min(Math.max(rawLimit, 1), 100);
+		const limit = Math.min(Math.max(rawLimit, 1), 100)
 
-		const sortColumn: SortColumn = ALLOWED_SORT_COLUMNS.includes(
-			rawSortColumn as SortColumn,
-		)
+		const sortColumn: SortColumn = ALLOWED_SORT_COLUMNS.includes(rawSortColumn as SortColumn)
 			? rawSortColumn
-			: "date";
+			: "date"
 
-		const offset = (page - 1) * limit;
+		const offset = (page - 1) * limit
 
-		const conditions: SQL[] = [];
+		const conditions: SQL[] = []
 		if (folder) {
 			conditions.push(
 				sql`${schema.emails.folder_id} = (SELECT id FROM folders WHERE name = ${folder} OR id = ${folder} LIMIT 1)`,
-			);
+			)
 		}
 		if (thread_id) {
-			conditions.push(eq(schema.emails.thread_id, thread_id));
+			conditions.push(eq(schema.emails.thread_id, thread_id))
 		}
 
-		const orderCol = SORT_COLUMN_MAP[sortColumn];
-		const orderDir = sortDirection === "ASC" ? asc(orderCol) : desc(orderCol);
+		const orderCol = SORT_COLUMN_MAP[sortColumn]
+		const orderDir = sortDirection === "ASC" ? asc(orderCol) : desc(orderCol)
 
 		const result = this.db
 			.select({
@@ -167,63 +165,53 @@ export class MailboxDO extends DurableObject<Env> {
 			.orderBy(orderDir)
 			.limit(limit)
 			.offset(offset)
-			.all();
+			.all()
 
 		return result.map((email) => ({
 			...email,
 			read: !!email.read,
 			starred: !!email.starred,
-		}));
+		}))
 	}
 
 	/**
 	 * Count total emails matching the given filters (for pagination).
 	 */
 	async countEmails(options: { folder?: string; thread_id?: string } = {}) {
-		const { folder, thread_id } = options;
-		const conditions: string[] = [];
-		const params: (string | number)[] = [];
+		const { folder, thread_id } = options
+		const conditions: string[] = []
+		const params: (string | number)[] = []
 
 		if (folder) {
-			conditions.push(
-				"folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)",
-			);
-			params.push(folder);
+			conditions.push("folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)")
+			params.push(folder)
 		}
 
 		if (thread_id) {
-			conditions.push(`thread_id = ?${params.length + 1}`);
-			params.push(thread_id);
+			conditions.push(`thread_id = ?${params.length + 1}`)
+			params.push(thread_id)
 		}
 
-		const where =
-			conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+		const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
 		const row = [
-			...this.ctx.storage.sql.exec(
-				`SELECT COUNT(*) as total FROM emails ${where}`,
-				...params,
-			),
-		][0] as { total: number } | undefined;
+			...this.ctx.storage.sql.exec(`SELECT COUNT(*) as total FROM emails ${where}`, ...params),
+		][0] as { total: number } | undefined
 
-		return row?.total ?? 0;
+		return row?.total ?? 0
 	}
 
 	// ── Threaded queries (raw SQL — too complex for Drizzle's builder) ──
 
 	async getThreadedEmails(options: GetEmailsOptions = {}) {
-		const {
-			folder,
-			page = 1,
-			limit: rawLimit = 25,
-		} = options;
-		const limit = Math.min(Math.max(rawLimit, 1), 100);
+		const { folder, page = 1, limit: rawLimit = 25 } = options
+		const limit = Math.min(Math.max(rawLimit, 1), 100)
 
 		if (!folder) {
 			// Fallback to regular getEmails if no folder specified
-			return this.getEmails(options);
+			return this.getEmails(options)
 		}
 
-		const offset = (page - 1) * limit;
+		const offset = (page - 1) * limit
 
 		// Thread grouping strategy:
 		// For DRAFT folder: group by in_reply_to (the email being replied to).
@@ -234,7 +222,7 @@ export class MailboxDO extends DurableObject<Env> {
 		//   1. Primary: group by thread_id (from email threading headers)
 		//   2. Fallback: group by normalized subject (strips Re:/Fwd:/FW: prefixes)
 		//      for legacy emails that lack threading headers (thread_id IS NULL).
-		const isDraftFolder = folder === Folders.DRAFT;
+		const isDraftFolder = folder === Folders.DRAFT
 
 		if (isDraftFolder) {
 			const result = this.ctx.storage.sql.exec(
@@ -274,10 +262,12 @@ export class MailboxDO extends DurableObject<Env> {
 				WHERE lp.rn = 1
 				ORDER BY lp.date DESC
 				LIMIT ?2 OFFSET ?3`,
-				folder, limit, offset
-			);
+				folder,
+				limit,
+				offset,
+			)
 
-			const rows = [...result];
+			const rows = [...result]
 			return rows.map((row: any) => ({
 				...row,
 				read: !!row.read,
@@ -285,7 +275,7 @@ export class MailboxDO extends DurableObject<Env> {
 				thread_count: row.thread_count || 1,
 				thread_unread_count: row.thread_unread_count || 0,
 				participants: row.participants || row.sender,
-			}));
+			}))
 		}
 
 		// Non-draft folders: full threading logic
@@ -369,10 +359,12 @@ export class MailboxDO extends DurableObject<Env> {
 			WHERE lif.rn = 1
 			ORDER BY lif.date DESC
 			LIMIT ?2 OFFSET ?3`,
-			folder, limit, offset
-		);
+			folder,
+			limit,
+			offset,
+		)
 
-		const rows = [...result];
+		const rows = [...result]
 		return rows.map((row: any) => ({
 			...row,
 			read: !!row.read,
@@ -382,7 +374,7 @@ export class MailboxDO extends DurableObject<Env> {
 			participants: row.participants || row.sender,
 			needs_reply: !!row.needs_reply,
 			has_draft: !!row.has_draft,
-		}));
+		}))
 	}
 
 	/**
@@ -390,7 +382,7 @@ export class MailboxDO extends DurableObject<Env> {
 	 * Returns the number of conversation groups, not individual emails.
 	 */
 	async countThreadedEmails(folder: string) {
-		const isDraftFolder = folder === Folders.DRAFT;
+		const isDraftFolder = folder === Folders.DRAFT
 
 		if (isDraftFolder) {
 			const row = [
@@ -400,8 +392,8 @@ export class MailboxDO extends DurableObject<Env> {
 					 WHERE folder_id = (SELECT id FROM folders WHERE name = ?1 OR id = ?1 LIMIT 1)`,
 					folder,
 				),
-			][0] as { total: number } | undefined;
-			return row?.total ?? 0;
+			][0] as { total: number } | undefined
+			return row?.total ?? 0
 		}
 
 		const row = [
@@ -430,33 +422,29 @@ export class MailboxDO extends DurableObject<Env> {
 				FROM thread_to_conversation`,
 				folder,
 			),
-		][0] as { total: number } | undefined;
-		return row?.total ?? 0;
+		][0] as { total: number } | undefined
+		return row?.total ?? 0
 	}
 
 	// ── Single email operations (Drizzle) ──────────────────────────
 
 	async getEmail(id: string) {
-		const email = this.db
-			.select()
-			.from(schema.emails)
-			.where(eq(schema.emails.id, id))
-			.get();
+		const email = this.db.select().from(schema.emails).where(eq(schema.emails.id, id)).get()
 
-		if (!email) return null;
+		if (!email) return null
 
 		const emailAttachments = this.db
 			.select()
 			.from(schema.attachments)
 			.where(eq(schema.attachments.email_id, id))
-			.all();
+			.all()
 
 		return {
 			...email,
 			read: !!email.read,
 			starred: !!email.starred,
 			attachments: emailAttachments,
-		};
+		}
 	}
 
 	/**
@@ -470,27 +458,27 @@ export class MailboxDO extends DurableObject<Env> {
 				`SELECT * FROM emails WHERE thread_id = ?1 ORDER BY date ASC`,
 				threadId,
 			),
-		] as any[];
+		] as any[]
 
-		if (emailRows.length === 0) return [];
+		if (emailRows.length === 0) return []
 
-		const emailIds = emailRows.map((e) => e.id as string);
+		const emailIds = emailRows.map((e) => e.id as string)
 
 		// Batch-fetch all attachments for the thread in a single query
-		const placeholders = emailIds.map((_, i) => `?${i + 1}`).join(",");
+		const placeholders = emailIds.map((_, i) => `?${i + 1}`).join(",")
 		const attachmentRows = [
 			...this.ctx.storage.sql.exec(
 				`SELECT * FROM attachments WHERE email_id IN (${placeholders})`,
 				...emailIds,
 			),
-		] as any[];
+		] as any[]
 
 		// Group attachments by email_id
-		const attachmentsByEmail = new Map<string, any[]>();
+		const attachmentsByEmail = new Map<string, any[]>()
 		for (const att of attachmentRows) {
-			const list = attachmentsByEmail.get(att.email_id) || [];
-			list.push(att);
-			attachmentsByEmail.set(att.email_id, list);
+			const list = attachmentsByEmail.get(att.email_id) || []
+			list.push(att)
+			attachmentsByEmail.set(att.email_id, list)
 		}
 
 		return emailRows.map((email) => ({
@@ -498,40 +486,33 @@ export class MailboxDO extends DurableObject<Env> {
 			read: !!email.read,
 			starred: !!email.starred,
 			attachments: attachmentsByEmail.get(email.id) || [],
-		}));
+		}))
 	}
 
-	async updateEmail(
-		id: string,
-		{ read, starred }: { read?: boolean; starred?: boolean },
-	) {
-		const data: { read?: number; starred?: number } = {};
+	async updateEmail(id: string, { read, starred }: { read?: boolean; starred?: boolean }) {
+		const data: { read?: number; starred?: number } = {}
 		if (read !== undefined) {
-			data.read = read ? 1 : 0;
+			data.read = read ? 1 : 0
 		}
 		if (starred !== undefined) {
-			data.starred = starred ? 1 : 0;
+			data.starred = starred ? 1 : 0
 		}
 
 		if (Object.keys(data).length === 0) {
-			return this.getEmail(id);
+			return this.getEmail(id)
 		}
 
-		this.db
-			.update(schema.emails)
-			.set(data)
-			.where(eq(schema.emails.id, id))
-			.run();
+		this.db.update(schema.emails).set(data).where(eq(schema.emails.id, id)).run()
 
-		return this.getEmail(id);
+		return this.getEmail(id)
 	}
 
 	async markThreadRead(threadId: string) {
 		this.ctx.storage.sql.exec(
 			`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,
 			threadId,
-		);
-		return { threadId, markedRead: true };
+		)
+		return { threadId, markedRead: true }
 	}
 
 	async deleteEmail(id: string) {
@@ -539,9 +520,9 @@ export class MailboxDO extends DurableObject<Env> {
 			.select({ id: schema.emails.id })
 			.from(schema.emails)
 			.where(eq(schema.emails.id, id))
-			.get();
+			.get()
 
-		if (!email) return null;
+		if (!email) return null
 
 		const emailAttachments = this.db
 			.select({
@@ -550,24 +531,17 @@ export class MailboxDO extends DurableObject<Env> {
 			})
 			.from(schema.attachments)
 			.where(eq(schema.attachments.email_id, id))
-			.all();
+			.all()
 
-		this.db
-			.delete(schema.emails)
-			.where(eq(schema.emails.id, id))
-			.run();
+		this.db.delete(schema.emails).where(eq(schema.emails.id, id)).run()
 
-		return emailAttachments;
+		return emailAttachments
 	}
 
 	async getAttachment(id: string) {
 		return (
-			this.db
-				.select()
-				.from(schema.attachments)
-				.where(eq(schema.attachments.id, id))
-				.get() ?? null
-		);
+			this.db.select().from(schema.attachments).where(eq(schema.attachments.id, id)).get() ?? null
+		)
 	}
 
 	// ── Folders (Drizzle) ──────────────────────────────────────────
@@ -577,13 +551,16 @@ export class MailboxDO extends DurableObject<Env> {
 			.select({
 				id: schema.folders.id,
 				name: schema.folders.name,
-				unreadCount: sql<number>`COALESCE(SUM(CASE WHEN ${schema.emails.read} = 0 THEN 1 ELSE 0 END), 0)`.mapWith(Number),
+				unreadCount:
+					sql<number>`COALESCE(SUM(CASE WHEN ${schema.emails.read} = 0 THEN 1 ELSE 0 END), 0)`.mapWith(
+						Number,
+					),
 			})
 			.from(schema.folders)
 			.leftJoin(schema.emails, eq(schema.emails.folder_id, schema.folders.id))
 			.groupBy(schema.folders.id, schema.folders.name)
-			.all();
-		return result;
+			.all()
+		return result
 	}
 
 	async createFolder(id: string, name: string, is_deletable: number = 1) {
@@ -592,13 +569,13 @@ export class MailboxDO extends DurableObject<Env> {
 				.insert(schema.folders)
 				.values({ id, name, is_deletable })
 				.returning({ id: schema.folders.id, name: schema.folders.name })
-				.get();
-			return { ...result, unreadCount: 0 };
+				.get()
+			return { ...result, unreadCount: 0 }
 		} catch (e: unknown) {
 			if (e instanceof Error && e.message.includes("UNIQUE constraint failed")) {
-				return null;
+				return null
 			}
-			throw e;
+			throw e
 		}
 	}
 
@@ -608,8 +585,8 @@ export class MailboxDO extends DurableObject<Env> {
 			.set({ name })
 			.where(eq(schema.folders.id, id))
 			.returning({ id: schema.folders.id, name: schema.folders.name })
-			.get();
-		return result;
+			.get()
+		return result
 	}
 
 	async deleteFolder(id: string) {
@@ -617,18 +594,15 @@ export class MailboxDO extends DurableObject<Env> {
 			.select({ is_deletable: schema.folders.is_deletable })
 			.from(schema.folders)
 			.where(eq(schema.folders.id, id))
-			.get();
+			.get()
 
 		if (!folder || folder.is_deletable === 0) {
-			return false;
+			return false
 		}
 
-		this.db
-			.delete(schema.folders)
-			.where(eq(schema.folders.id, id))
-			.run();
+		this.db.delete(schema.folders).where(eq(schema.folders.id, id)).run()
 
-		return true;
+		return true
 	}
 
 	async moveEmail(id: string, folderId: string) {
@@ -636,17 +610,13 @@ export class MailboxDO extends DurableObject<Env> {
 			.select({ id: schema.folders.id })
 			.from(schema.folders)
 			.where(eq(schema.folders.id, folderId))
-			.get();
+			.get()
 
-		if (!folder) return false;
+		if (!folder) return false
 
-		this.db
-			.update(schema.emails)
-			.set({ folder_id: folderId })
-			.where(eq(schema.emails.id, id))
-			.run();
+		this.db.update(schema.emails).set({ folder_id: folderId }).where(eq(schema.emails.id, id)).run()
 
-		return true;
+		return true
 	}
 
 	// ── Search (raw SQL — dynamic condition builder) ───────────────
@@ -659,48 +629,88 @@ export class MailboxDO extends DurableObject<Env> {
 		options: SearchFilterOptions,
 		tableAlias = "",
 	): { conditions: string[]; params: (string | number)[] } {
-		const { query, folder, from, to, subject, date_start, date_end, is_read, is_starred, has_attachment } = options;
-		const prefix = tableAlias ? `${tableAlias}.` : "";
-		const conditions: string[] = [];
-		const params: (string | number)[] = [];
-		let paramIdx = 0;
+		const {
+			query,
+			folder,
+			from,
+			to,
+			subject,
+			date_start,
+			date_end,
+			is_read,
+			is_starred,
+			has_attachment,
+		} = options
+		const prefix = tableAlias ? `${tableAlias}.` : ""
+		const conditions: string[] = []
+		const params: (string | number)[] = []
+		let paramIdx = 0
 
 		const addParam = (value: string | number) => {
-			paramIdx++;
-			params.push(value);
-			return `?${paramIdx}`;
-		};
+			paramIdx++
+			params.push(value)
+			return `?${paramIdx}`
+		}
 
 		if (query) {
-			const p1 = addParam(`%${query}%`);
-			const p2 = addParam(`%${query}%`);
-			const p3 = addParam(`%${query}%`);
-			const p4 = addParam(`%${query}%`);
-			conditions.push(`(${prefix}subject LIKE ${p1} OR ${prefix}body LIKE ${p2} OR ${prefix}sender LIKE ${p3} OR ${prefix}recipient LIKE ${p4} OR ${prefix}cc LIKE ${p4} OR ${prefix}bcc LIKE ${p4})`);
+			const p1 = addParam(`%${query}%`)
+			const p2 = addParam(`%${query}%`)
+			const p3 = addParam(`%${query}%`)
+			const p4 = addParam(`%${query}%`)
+			conditions.push(
+				`(${prefix}subject LIKE ${p1} OR ${prefix}body LIKE ${p2} OR ${prefix}sender LIKE ${p3} OR ${prefix}recipient LIKE ${p4} OR ${prefix}cc LIKE ${p4} OR ${prefix}bcc LIKE ${p4})`,
+			)
 		}
 		if (folder) {
-			const p = addParam(folder);
-			conditions.push(`${prefix}folder_id = (SELECT id FROM folders WHERE name = ${p} OR id = ${p} LIMIT 1)`);
+			const p = addParam(folder)
+			conditions.push(
+				`${prefix}folder_id = (SELECT id FROM folders WHERE name = ${p} OR id = ${p} LIMIT 1)`,
+			)
 		}
-		if (from) { const p = addParam(`%${from}%`); conditions.push(`${prefix}sender LIKE ${p}`); }
-		if (to) { const p = addParam(`%${to}%`); conditions.push(`(${prefix}recipient LIKE ${p} OR ${prefix}cc LIKE ${p} OR ${prefix}bcc LIKE ${p})`); }
-		if (subject) { const p = addParam(`%${subject}%`); conditions.push(`${prefix}subject LIKE ${p}`); }
-		if (date_start) { const p = addParam(date_start); conditions.push(`${prefix}date >= ${p}`); }
-		if (date_end) { const p = addParam(date_end); conditions.push(`${prefix}date <= ${p}`); }
-		if (is_read !== undefined) { const p = addParam(is_read ? 1 : 0); conditions.push(`${prefix}read = ${p}`); }
-		if (is_starred !== undefined) { const p = addParam(is_starred ? 1 : 0); conditions.push(`${prefix}starred = ${p}`); }
-		if (has_attachment) { conditions.push(`${prefix}id IN (SELECT DISTINCT email_id FROM attachments)`); }
+		if (from) {
+			const p = addParam(`%${from}%`)
+			conditions.push(`${prefix}sender LIKE ${p}`)
+		}
+		if (to) {
+			const p = addParam(`%${to}%`)
+			conditions.push(
+				`(${prefix}recipient LIKE ${p} OR ${prefix}cc LIKE ${p} OR ${prefix}bcc LIKE ${p})`,
+			)
+		}
+		if (subject) {
+			const p = addParam(`%${subject}%`)
+			conditions.push(`${prefix}subject LIKE ${p}`)
+		}
+		if (date_start) {
+			const p = addParam(date_start)
+			conditions.push(`${prefix}date >= ${p}`)
+		}
+		if (date_end) {
+			const p = addParam(date_end)
+			conditions.push(`${prefix}date <= ${p}`)
+		}
+		if (is_read !== undefined) {
+			const p = addParam(is_read ? 1 : 0)
+			conditions.push(`${prefix}read = ${p}`)
+		}
+		if (is_starred !== undefined) {
+			const p = addParam(is_starred ? 1 : 0)
+			conditions.push(`${prefix}starred = ${p}`)
+		}
+		if (has_attachment) {
+			conditions.push(`${prefix}id IN (SELECT DISTINCT email_id FROM attachments)`)
+		}
 
-		return { conditions, params };
+		return { conditions, params }
 	}
 
 	async searchEmails(options: SearchFilterOptions & { page?: number; limit?: number }) {
-		const { page = 1, limit: rawLimit = 25 } = options;
-		const limit = Math.min(Math.max(rawLimit, 1), 100);
-		const { conditions, params } = this.#buildSearchConditions(options, "e");
+		const { page = 1, limit: rawLimit = 25 } = options
+		const limit = Math.min(Math.max(rawLimit, 1), 100)
+		const { conditions, params } = this.#buildSearchConditions(options, "e")
 
-		const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-		const offset = (page - 1) * limit;
+		const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
+		const offset = (page - 1) * limit
 
 		const query = `
 			SELECT e.id, e.subject, e.sender, e.recipient, e.cc, e.bcc, e.date,
@@ -711,30 +721,28 @@ export class MailboxDO extends DurableObject<Env> {
 			FROM emails e
 			LEFT JOIN folders f ON e.folder_id = f.id
 			${where}
-			ORDER BY e.date DESC LIMIT ?${params.length + 1} OFFSET ?${params.length + 2}`;
-		params.push(limit, offset);
+			ORDER BY e.date DESC LIMIT ?${params.length + 1} OFFSET ?${params.length + 2}`
+		params.push(limit, offset)
 
-		const result = this.ctx.storage.sql.exec(query, ...params);
+		const result = this.ctx.storage.sql.exec(query, ...params)
 		return [...result].map((row: any) => ({
 			...row,
 			read: !!row.read,
 			starred: !!row.starred,
-		}));
+		}))
 	}
 
 	/**
 	 * Count total search results matching the given filters (for pagination).
 	 */
 	async countSearchResults(options: SearchFilterOptions) {
-		const { conditions, params } = this.#buildSearchConditions(options);
+		const { conditions, params } = this.#buildSearchConditions(options)
 
-		const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-		const query = `SELECT COUNT(*) as total FROM emails ${where}`;
+		const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
+		const query = `SELECT COUNT(*) as total FROM emails ${where}`
 
-		const row = [...this.ctx.storage.sql.exec(query, ...params)][0] as
-			| { total: number }
-			| undefined;
-		return row?.total ?? 0;
+		const row = [...this.ctx.storage.sql.exec(query, ...params)][0] as { total: number } | undefined
+		return row?.total ?? 0
 	}
 
 	// ── Threading helpers (raw SQL) ────────────────────────────────
@@ -743,9 +751,9 @@ export class MailboxDO extends DurableObject<Env> {
 		const normalized = subject
 			.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
 			.trim()
-			.toLowerCase();
+			.toLowerCase()
 
-		if (!normalized) return null;
+		if (!normalized) return null
 
 		const result = this.ctx.storage.sql.exec(
 			`SELECT thread_id, subject,
@@ -758,29 +766,29 @@ export class MailboxDO extends DurableObject<Env> {
 			 GROUP BY thread_id
 			 ORDER BY MAX(date) DESC
 			 LIMIT 50`,
-		);
+		)
 
-		const normalizedSender = senderAddress?.toLowerCase().trim();
+		const normalizedSender = senderAddress?.toLowerCase().trim()
 
 		for (const row of result) {
 			const rowSubject = String((row as any).subject || "")
 				.replace(/^(?:(?:re|fwd?|fw|aw|wg|r[eé]f|sv)\s*:\s*)+/i, "")
 				.trim()
-				.toLowerCase();
-			if (rowSubject !== normalized) continue;
+				.toLowerCase()
+			if (rowSubject !== normalized) continue
 
 			if (normalizedSender) {
-				const threadSenders = String((row as any).senders || "");
-				const threadRecipients = String((row as any).recipients || "");
-				const allParticipants = `${threadSenders},${threadRecipients}`;
+				const threadSenders = String((row as any).senders || "")
+				const threadRecipients = String((row as any).recipients || "")
+				const allParticipants = `${threadSenders},${threadRecipients}`
 				if (!allParticipants.includes(normalizedSender)) {
-					continue;
+					continue
 				}
 			}
 
-			return String((row as any).thread_id);
+			return String((row as any).thread_id)
 		}
-		return null;
+		return null
 	}
 
 	// ── Rate limiting (raw SQL) ────────────────────────────────────
@@ -791,55 +799,55 @@ export class MailboxDO extends DurableObject<Env> {
 	 * Returns null if under limit, or an error message string if exceeded.
 	 */
 	async checkSendRateLimit(): Promise<string | null> {
-		const hourRow = [...this.ctx.storage.sql.exec(
-			`SELECT COUNT(*) as cnt FROM emails
+		const hourRow = [
+			...this.ctx.storage.sql.exec(
+				`SELECT COUNT(*) as cnt FROM emails
 			 WHERE folder_id = ?1
 			   AND date >= datetime('now', '-1 hour')`,
-			Folders.SENT,
-		)][0] as { cnt: number } | undefined;
+				Folders.SENT,
+			),
+		][0] as { cnt: number } | undefined
 
 		if ((hourRow?.cnt ?? 0) >= 20) {
-			return "Rate limit exceeded: max 20 emails per hour per mailbox";
+			return "Rate limit exceeded: max 20 emails per hour per mailbox"
 		}
 
-		const dayRow = [...this.ctx.storage.sql.exec(
-			`SELECT COUNT(*) as cnt FROM emails
+		const dayRow = [
+			...this.ctx.storage.sql.exec(
+				`SELECT COUNT(*) as cnt FROM emails
 			 WHERE folder_id = ?1
 			   AND date >= datetime('now', '-1 day')`,
-			Folders.SENT,
-		)][0] as { cnt: number } | undefined;
+				Folders.SENT,
+			),
+		][0] as { cnt: number } | undefined
 
 		if ((dayRow?.cnt ?? 0) >= 100) {
-			return "Rate limit exceeded: max 100 emails per day per mailbox";
+			return "Rate limit exceeded: max 100 emails per day per mailbox"
 		}
 
-		return null;
+		return null
 	}
 
 	// ── Email creation (Drizzle) ───────────────────────────────────
 
-	async createEmail(
-		folder: string,
-		email: EmailData,
-		attachments: AttachmentData[],
-	) {
+	async createEmail(folder: string, email: EmailData, attachments: AttachmentData[]) {
 		// Resolve folder name or ID to the actual folder ID.
 		const folderRow = this.db
 			.select({ id: schema.folders.id })
 			.from(schema.folders)
 			.where(or(eq(schema.folders.id, folder), eq(schema.folders.name, folder)))
 			.limit(1)
-			.get();
+			.get()
 
 		if (!folderRow) {
 			throw new Error(
 				`createEmail: folder "${folder}" not found. ` +
 					"Ensure the folder exists before inserting an email.",
-			);
+			)
 		}
 
-		const folderId = folderRow.id;
-		const isSent = folderId === Folders.SENT;
+		const folderId = folderRow.id
+		const isSent = folderId === Folders.SENT
 
 		// Sent emails are always read — the sender obviously knows what they wrote.
 		// This prevents sent replies from inflating thread_unread_count.
@@ -854,7 +862,7 @@ export class MailboxDO extends DurableObject<Env> {
 				cc: email.cc ?? null,
 				bcc: email.bcc ?? null,
 				date: email.date,
-				read: isSent ? 1 : (email.read ? 1 : 0),
+				read: isSent ? 1 : email.read ? 1 : 0,
 				starred: email.starred ? 1 : 0,
 				body: email.body,
 				in_reply_to: email.in_reply_to ?? null,
@@ -863,10 +871,10 @@ export class MailboxDO extends DurableObject<Env> {
 				message_id: email.message_id ?? null,
 				raw_headers: email.raw_headers ?? null,
 			})
-			.run();
+			.run()
 
 		if (attachments.length > 0) {
-			this.db.insert(schema.attachments).values(attachments).run();
+			this.db.insert(schema.attachments).values(attachments).run()
 		}
 	}
 }

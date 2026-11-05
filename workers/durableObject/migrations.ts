@@ -3,8 +3,8 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 export interface Migration {
-	name: string;
-	sql: string;
+	name: string
+	sql: string
 }
 
 /**
@@ -23,44 +23,37 @@ export function applyMigrations(
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL UNIQUE,
 		applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-	)`);
+	)`)
 
 	for (const migration of migrations) {
-		const applied = [
-			...sql.exec(
-				`SELECT 1 FROM d1_migrations WHERE name = ?`,
-				migration.name,
-			),
-		];
-		if (applied.length > 0) continue;
+		const applied = [...sql.exec(`SELECT 1 FROM d1_migrations WHERE name = ?`, migration.name)]
+		if (applied.length > 0) continue
 
 		// Strip any existing BEGIN/COMMIT wrapper from the migration SQL.
 		// Cloudflare's DO runtime forbids SQL-level transactions -- must use
 		// the JS storage.transactionSync() API instead.
-		let migrationSql = migration.sql.trim();
-		migrationSql = migrationSql.replace(/^\s*BEGIN\s+TRANSACTION\s*;?\s*/i, "");
-		migrationSql = migrationSql.replace(/\s*COMMIT\s*;?\s*$/i, "");
+		let migrationSql = migration.sql.trim()
+		migrationSql = migrationSql.replace(/^\s*BEGIN\s+TRANSACTION\s*;?\s*/i, "")
+		migrationSql = migrationSql.replace(/\s*COMMIT\s*;?\s*$/i, "")
 
-		const escapedName = migration.name.replace(/'/g, "''");
+		const escapedName = migration.name.replace(/'/g, "''")
 		const run = () => {
-			sql.exec(migrationSql);
-			sql.exec(
-				`INSERT INTO d1_migrations (name) VALUES ('${escapedName}')`,
-			);
-		};
+			sql.exec(migrationSql)
+			sql.exec(`INSERT INTO d1_migrations (name) VALUES ('${escapedName}')`)
+		}
 
 		if (storage) {
 			// Preferred: atomic transaction via the DO JS API
-			storage.transactionSync(run);
+			storage.transactionSync(run)
 		} else {
 			// Fallback: run without explicit transaction (each exec is auto-committed)
-			run();
+			run()
 		}
 	}
 }
 
 interface DurableObjectStorage {
-	transactionSync: <T>(closure: () => T) => T;
+	transactionSync: <T>(closure: () => T) => T
 }
 
 /**
@@ -75,10 +68,10 @@ interface DurableObjectStorage {
  * uniformly costs nothing and avoids accidental omissions.
  */
 function txn(sql: string): string {
-	const trimmed = sql.trim();
+	const trimmed = sql.trim()
 	// Don't double-wrap if someone already added BEGIN/COMMIT
-	if (/^\s*BEGIN\b/i.test(trimmed)) return trimmed;
-	return `BEGIN TRANSACTION;\n${trimmed}\nCOMMIT;`;
+	if (/^\s*BEGIN\b/i.test(trimmed)) return trimmed
+	return `BEGIN TRANSACTION;\n${trimmed}\nCOMMIT;`
 }
 
 export const mailboxMigrations: Migration[] = [
@@ -168,4 +161,4 @@ export const mailboxMigrations: Migration[] = [
             CREATE INDEX IF NOT EXISTS idx_emails_folder_date ON emails(folder_id, date DESC);
         `,
 	},
-];
+]

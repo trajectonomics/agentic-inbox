@@ -11,22 +11,22 @@
  */
 
 export interface SendEmailParams {
-	to: string | string[];
-	from: string | { email: string; name: string };
-	subject: string;
-	html?: string;
-	text?: string;
-	cc?: string | string[];
-	bcc?: string | string[];
-	replyTo?: string | { email: string; name: string };
+	to: string | string[]
+	from: string | { email: string; name: string }
+	subject: string
+	html?: string
+	text?: string
+	cc?: string | string[]
+	bcc?: string | string[]
+	replyTo?: string | { email: string; name: string }
 	attachments?: {
-		content: string; // base64 encoded
-		filename: string;
-		type: string;
-		disposition: "attachment" | "inline";
-		contentId?: string;
-	}[];
-	headers?: Record<string, string>;
+		content: string // base64 encoded
+		filename: string
+		type: string
+		disposition: "attachment" | "inline"
+		contentId?: string
+	}[]
+	headers?: Record<string, string>
 }
 
 /**
@@ -45,16 +45,16 @@ export async function sendEmail(
 		to: params.to,
 		from: params.from,
 		subject: params.subject,
-	};
+	}
 
-	if (params.html) message.html = params.html;
-	if (params.text) message.text = params.text;
-	if (params.cc) message.cc = params.cc;
-	if (params.bcc) message.bcc = params.bcc;
-	if (params.replyTo) message.replyTo = params.replyTo;
+	if (params.html) message.html = params.html
+	if (params.text) message.text = params.text
+	if (params.cc) message.cc = params.cc
+	if (params.bcc) message.bcc = params.bcc
+	if (params.replyTo) message.replyTo = params.replyTo
 
 	if (params.headers && Object.keys(params.headers).length > 0) {
-		message.headers = params.headers;
+		message.headers = params.headers
 	}
 
 	if (params.attachments && params.attachments.length > 0) {
@@ -64,9 +64,9 @@ export async function sendEmail(
 			type: att.type,
 			disposition: att.disposition,
 			...(att.contentId ? { contentId: att.contentId } : {}),
-		}));
+		}))
 	}
 
-	const result = await binding.send(message as any);
-	return { messageId: result.messageId };
+	const result = await binding.send(message as any)
+	return { messageId: result.messageId }
 }

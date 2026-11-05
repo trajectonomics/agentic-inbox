@@ -2,14 +2,14 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { ReactNode } from "react";
-import ComposePanel from "~/components/ComposePanel";
-import EmailPanel from "~/components/EmailPanel";
+import type { ReactNode } from "react"
+import ComposePanel from "~/components/ComposePanel"
+import EmailPanel from "~/components/EmailPanel"
 
 interface MailboxSplitViewProps {
-	selectedEmailId: string | null;
-	isComposing: boolean;
-	children: ReactNode;
+	selectedEmailId: string | null
+	isComposing: boolean
+	children: ReactNode
 }
 
 export default function MailboxSplitView({
@@ -17,15 +17,13 @@ export default function MailboxSplitView({
 	isComposing,
 	children,
 }: MailboxSplitViewProps) {
-	const isPanelOpen = selectedEmailId !== null || isComposing;
+	const isPanelOpen = selectedEmailId !== null || isComposing
 
 	return (
 		<div className="flex h-full">
 			<div
 				className={`flex flex-col min-w-0 shrink-0 ${
-					isPanelOpen
-						? "hidden md:flex md:w-[380px] md:border-r md:border-kumo-line"
-						: "w-full"
+					isPanelOpen ? "hidden md:flex md:w-[380px] md:border-r md:border-kumo-line" : "w-full"
 				}`}
 			>
 				{children}
@@ -47,5 +45,5 @@ export default function MailboxSplitView({
 				</div>
 			)}
 		</div>
-	);
+	)
 }

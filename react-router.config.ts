@@ -2,11 +2,11 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { Config } from "@react-router/dev/config";
+import type { Config } from "@react-router/dev/config"
 
 export default {
-  ssr: true,
-  future: {
-    v8_viteEnvironmentApi: true,
-  },
-} satisfies Config;
+	ssr: true,
+	future: {
+		v8_viteEnvironmentApi: true,
+	},
+} satisfies Config

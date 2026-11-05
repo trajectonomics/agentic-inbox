@@ -3,9 +3,9 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 interface EmailPanelHeaderProps {
-	subject: string;
-	messageCount: number;
-	showThreadCount: boolean;
+	subject: string
+	messageCount: number
+	showThreadCount: boolean
 }
 
 export default function EmailPanelHeader({
@@ -22,5 +22,5 @@ export default function EmailPanelHeader({
 				</span>
 			)}
 		</div>
-	);
+	)
 }

@@ -2,28 +2,22 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Button, Tooltip } from "@cloudflare/kumo";
-import {
-	CheckIcon,
-	CopyIcon,
-	PlugsIcon,
-	WrenchIcon,
-} from "@phosphor-icons/react";
-import { useState } from "react";
-import { useParams } from "react-router";
+import { Button, Tooltip } from "@cloudflare/kumo"
+import { CheckIcon, CopyIcon, PlugsIcon, WrenchIcon } from "@phosphor-icons/react"
+import { useState } from "react"
 
 function CopyButton({ text }: { text: string }) {
-	const [copied, setCopied] = useState(false);
+	const [copied, setCopied] = useState(false)
 
 	const handleCopy = async () => {
 		try {
-			await navigator.clipboard.writeText(text);
-			setCopied(true);
-			setTimeout(() => setCopied(false), 2000);
+			await navigator.clipboard.writeText(text)
+			setCopied(true)
+			setTimeout(() => setCopied(false), 2000)
 		} catch {
 			// Clipboard API unavailable or permission denied — ignore silently
 		}
-	};
+	}
 
 	return (
 		<Tooltip content={copied ? "Copied!" : "Copy"} asChild>
@@ -42,7 +36,7 @@ function CopyButton({ text }: { text: string }) {
 				aria-label="Copy to clipboard"
 			/>
 		</Tooltip>
-	);
+	)
 }
 
 const TOOLS = [
@@ -56,13 +50,12 @@ const TOOLS = [
 	{ name: "send_email", desc: "Send a new email" },
 	{ name: "mark_email_read", desc: "Mark email as read/unread" },
 	{ name: "move_email", desc: "Move email to a folder" },
-];
+]
 
 export default function MCPPanel() {
-	const { mailboxId } = useParams<{ mailboxId: string }>();
 	const baseUrl =
-		typeof window !== "undefined" ? window.location.origin : "https://your-app.workers.dev";
-	const mcpUrl = `${baseUrl}/mcp`;
+		typeof window !== "undefined" ? window.location.origin : "https://your-app.workers.dev"
+	const mcpUrl = `${baseUrl}/mcp`
 
 	return (
 		<div className="flex flex-col h-full">
@@ -72,34 +65,22 @@ export default function MCPPanel() {
 				<div className="space-y-2">
 					<div className="flex items-center gap-2">
 						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-kumo-brand/10">
-							<PlugsIcon
-								size={20}
-								weight="duotone"
-								className="text-kumo-brand"
-							/>
+							<PlugsIcon size={20} weight="duotone" className="text-kumo-brand" />
 						</div>
 						<div>
-							<h3 className="text-sm font-semibold text-kumo-default">
-								Connect via MCP
-							</h3>
-							<p className="text-xs text-kumo-subtle">
-								Model Context Protocol
-							</p>
+							<h3 className="text-sm font-semibold text-kumo-default">Connect via MCP</h3>
+							<p className="text-xs text-kumo-subtle">Model Context Protocol</p>
 						</div>
 					</div>
 					<p className="text-xs text-kumo-subtle leading-relaxed">
-						This email agent exposes an MCP server so AI coding
-						assistants can manage your inbox directly — read emails,
-						search, draft replies, and send messages using natural
-						language.
+						This email agent exposes an MCP server so AI coding assistants can manage your inbox
+						directly — read emails, search, draft replies, and send messages using natural language.
 					</p>
 				</div>
 
 				{/* MCP URL */}
 				<div className="space-y-1.5">
-					<label className="text-xs font-medium text-kumo-strong block">
-						Server URL
-					</label>
+					<label className="text-xs font-medium text-kumo-strong block">Server URL</label>
 					<div className="relative group">
 						<div className="absolute right-1.5 top-1/2 -translate-y-1/2">
 							<CopyButton text={mcpUrl} />
@@ -117,28 +98,19 @@ export default function MCPPanel() {
 					</h4>
 					<div className="border border-kumo-line rounded-lg divide-y divide-kumo-line">
 						{TOOLS.map((tool) => (
-							<div
-								key={tool.name}
-								className="flex items-center gap-2.5 px-3 py-2"
-							>
-								<WrenchIcon
-									size={12}
-									weight="bold"
-									className="text-kumo-brand shrink-0"
-								/>
+							<div key={tool.name} className="flex items-center gap-2.5 px-3 py-2">
+								<WrenchIcon size={12} weight="bold" className="text-kumo-brand shrink-0" />
 								<div className="min-w-0 flex-1">
 									<span className="text-xs font-mono font-medium text-kumo-default">
 										{tool.name}
 									</span>
 								</div>
-								<span className="text-[11px] text-kumo-subtle shrink-0">
-									{tool.desc}
-								</span>
+								<span className="text-[11px] text-kumo-subtle shrink-0">{tool.desc}</span>
 							</div>
 						))}
 					</div>
 				</div>
 			</div>
 		</div>
-	);
+	)
 }

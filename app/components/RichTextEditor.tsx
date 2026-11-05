@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Button, Tooltip } from "@cloudflare/kumo";
+import { Button, Tooltip } from "@cloudflare/kumo"
 import {
 	ArrowClockwiseIcon,
 	ArrowCounterClockwiseIcon,
@@ -16,27 +16,24 @@ import {
 	TextItalicIcon,
 	TextStrikethroughIcon,
 	TextUnderlineIcon,
-} from "@phosphor-icons/react";
-import { Color } from "@tiptap/extension-color";
-import Highlight from "@tiptap/extension-highlight";
-import TiptapImage from "@tiptap/extension-image";
-import LinkExtension from "@tiptap/extension-link";
-import TextAlign from "@tiptap/extension-text-align";
-import { TextStyle } from "@tiptap/extension-text-style";
-import Underline from "@tiptap/extension-underline";
-import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import { useCallback, useEffect } from "react";
+} from "@phosphor-icons/react"
+import { Color } from "@tiptap/extension-color"
+import Highlight from "@tiptap/extension-highlight"
+import TiptapImage from "@tiptap/extension-image"
+import LinkExtension from "@tiptap/extension-link"
+import TextAlign from "@tiptap/extension-text-align"
+import { TextStyle } from "@tiptap/extension-text-style"
+import Underline from "@tiptap/extension-underline"
+import { EditorContent, useEditor } from "@tiptap/react"
+import StarterKit from "@tiptap/starter-kit"
+import { useCallback, useEffect } from "react"
 
 interface RichTextEditorProps {
-	value: string;
-	onChange: (value: string) => void;
+	value: string
+	onChange: (value: string) => void
 }
 
-export default function RichTextEditor({
-	value,
-	onChange,
-}: RichTextEditorProps) {
+export default function RichTextEditor({ value, onChange }: RichTextEditorProps) {
 	const editor = useEditor({
 		extensions: [
 			StarterKit,
@@ -56,36 +53,36 @@ export default function RichTextEditor({
 			},
 		},
 		onUpdate: ({ editor }) => {
-			onChange(editor.getHTML());
+			onChange(editor.getHTML())
 		},
-	});
+	})
 
 	useEffect(() => {
 		if (editor && !editor.isDestroyed && value !== editor.getHTML()) {
-			editor.commands.setContent(value);
+			editor.commands.setContent(value)
 			// Place cursor at the start of the document (above quoted text)
 			const rafId = requestAnimationFrame(() => {
 				if (!editor.isDestroyed) {
-					editor.commands.focus('start');
+					editor.commands.focus("start")
 				}
-			});
-			return () => cancelAnimationFrame(rafId);
+			})
+			return () => cancelAnimationFrame(rafId)
 		}
-	}, [value, editor]);
+	}, [value, editor])
 
 	const setLink = useCallback(() => {
-		if (!editor) return;
-		const previousUrl = editor.getAttributes("link").href;
-		const url = window.prompt("URL", previousUrl);
-		if (url === null) return;
+		if (!editor) return
+		const previousUrl = editor.getAttributes("link").href
+		const url = window.prompt("URL", previousUrl)
+		if (url === null) return
 		if (url === "") {
-			editor.chain().focus().extendMarkRange("link").unsetLink().run();
-			return;
+			editor.chain().focus().extendMarkRange("link").unsetLink().run()
+			return
 		}
-		editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-	}, [editor]);
+		editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run()
+	}, [editor])
 
-	if (!editor) return null;
+	if (!editor) return null
 
 	return (
 		<div className="rounded-lg border border-kumo-line overflow-hidden flex flex-col h-full">
@@ -235,5 +232,5 @@ export default function RichTextEditor({
 				<EditorContent editor={editor} />
 			</div>
 		</div>
-	);
+	)
 }

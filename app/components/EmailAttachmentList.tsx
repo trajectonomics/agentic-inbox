@@ -2,17 +2,17 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { PaperclipIcon, FileIcon, ImageIcon } from "@phosphor-icons/react";
-import { formatBytes, getAttachmentUrl, getNonInlineAttachments } from "~/lib/utils";
-import type { Attachment } from "~/types";
+import { FileIcon, ImageIcon, PaperclipIcon } from "@phosphor-icons/react"
+import { formatBytes, getAttachmentUrl, getNonInlineAttachments } from "~/lib/utils"
+import type { Attachment } from "~/types"
 
 interface EmailAttachmentListProps {
-	mailboxId?: string;
-	emailId: string;
-	attachments?: Attachment[];
-	onPreviewImage?: (url: string, filename: string) => void;
-	className?: string;
-	showHeading?: boolean;
+	mailboxId?: string
+	emailId: string
+	attachments?: Attachment[]
+	onPreviewImage?: (url: string, filename: string) => void
+	className?: string
+	showHeading?: boolean
 }
 
 export default function EmailAttachmentList({
@@ -23,10 +23,10 @@ export default function EmailAttachmentList({
 	className,
 	showHeading = false,
 }: EmailAttachmentListProps) {
-	if (!mailboxId) return null;
+	if (!mailboxId) return null
 
-	const files = getNonInlineAttachments(attachments);
-	if (files.length === 0) return null;
+	const files = getNonInlineAttachments(attachments)
+	if (files.length === 0) return null
 
 	return (
 		<div className={className}>
@@ -40,8 +40,8 @@ export default function EmailAttachmentList({
 			)}
 			<div className="flex flex-wrap gap-2">
 				{files.map((attachment) => {
-					const url = getAttachmentUrl(mailboxId, emailId, attachment.id);
-					const isImage = attachment.mimetype?.startsWith("image/");
+					const url = getAttachmentUrl(mailboxId, emailId, attachment.id)
+					const isImage = attachment.mimetype?.startsWith("image/")
 
 					if (isImage && onPreviewImage) {
 						return (
@@ -57,7 +57,7 @@ export default function EmailAttachmentList({
 								</span>
 								<span className="text-kumo-subtle">{formatBytes(attachment.size)}</span>
 							</button>
-						);
+						)
 					}
 
 					return (
@@ -74,9 +74,9 @@ export default function EmailAttachmentList({
 							</span>
 							<span className="text-kumo-subtle">{formatBytes(attachment.size)}</span>
 						</a>
-					);
+					)
 				})}
 			</div>
 		</div>
-	);
+	)
 }

@@ -1,0 +1,78 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
+	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+	"files": {
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/build",
+			"!**/coverage",
+			"!**/*.md",
+			"!**/skills-lock.json",
+			"!**/.agents",
+			"!**/.claude",
+			"!**/.gemini",
+			"!**/.react-router",
+			"!**/.wrangler",
+			"!**/worker-configuration.d.ts",
+			"!**/*.tsbuildinfo",
+			"!**/*.svg",
+			"!**/*.css"
+		]
+	},
+	"formatter": { "indentStyle": "tab", "lineWidth": 100 },
+	"javascript": { "formatter": { "semicolons": "asNeeded", "quoteStyle": "double" } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"a11y": {
+				"noLabelWithoutControl": "off",
+				"useSemanticElements": "off"
+			},
+			"complexity": {
+				"noExcessiveCognitiveComplexity": "off",
+				"noUselessFragments": "off",
+				"useLiteralKeys": "off",
+				"useMathMinMax": "off",
+				"useOptionalChain": "off"
+			},
+			"correctness": {
+				"noUnusedFunctionParameters": "off",
+				"noUnusedImports": "error",
+				"noUnusedVariables": "error"
+			},
+			"performance": {
+				"useDomNodeTextContent": "off"
+			},
+			"style": {
+				"noExcessiveLinesPerFile": "off",
+				"noNonNullAssertion": "off",
+				"useImportType": "error",
+				"useExportType": "error"
+			},
+			"suspicious": {
+				"noAssignInExpressions": "off",
+				"noControlCharactersInRegex": "off",
+				"noExplicitAny": "off",
+				"noGlobalIsNan": "off",
+				"noImplicitAnyLet": "error"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.test.ts"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noExcessiveLinesPerFile": {
+							"level": "error",
+							"options": { "maxLines": 200, "skipBlankLines": true }
+						}
+					}
+				}
+			}
+		}
+	],
+	"assist": { "actions": { "source": { "organizeImports": "on" } } }
+}
