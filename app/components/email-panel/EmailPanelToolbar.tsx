@@ -2,8 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Button, Tooltip } from "@cloudflare/kumo";
-import { useEffect, useRef, useState } from "react";
+import { Button, Tooltip } from "@cloudflare/kumo"
 import {
 	ArrowBendUpLeftIcon,
 	ArrowBendUpRightIcon,
@@ -18,27 +17,28 @@ import {
 	StarIcon,
 	TrashIcon,
 	XIcon,
-} from "@phosphor-icons/react";
-import type { Folder, Email } from "~/types";
+} from "@phosphor-icons/react"
+import { useEffect, useRef, useState } from "react"
+import type { Email, Folder } from "~/types"
 
 interface EmailPanelToolbarProps {
-	email: Email;
-	mailboxId?: string;
-	isDraftFolder: boolean;
-	isSending: boolean;
-	moveToFolders: Folder[];
-	lastReceivedMessage?: Email;
-	onBack: () => void;
-	onSendDraft: () => void;
-	onEditDraft: () => void;
-	onReply: () => void;
-	onReplyAll: () => void;
-	onForward: () => void;
-	onToggleStar: () => void;
-	onToggleRead: () => void;
-	onMove: (folderId: string) => void;
-	onViewSource: () => void;
-	onDelete: () => void;
+	email: Email
+	mailboxId?: string
+	isDraftFolder: boolean
+	isSending: boolean
+	moveToFolders: Folder[]
+	lastReceivedMessage?: Email
+	onBack: () => void
+	onSendDraft: () => void
+	onEditDraft: () => void
+	onReply: () => void
+	onReplyAll: () => void
+	onForward: () => void
+	onToggleStar: () => void
+	onToggleRead: () => void
+	onMove: (folderId: string) => void
+	onViewSource: () => void
+	onDelete: () => void
 }
 
 export default function EmailPanelToolbar({
@@ -192,21 +192,27 @@ export default function EmailPanelToolbar({
 				</Tooltip>
 			</div>
 		</div>
-	);
+	)
 }
 
-function MoveToFolderMenu({ folders, onMove }: { folders: Folder[]; onMove: (id: string) => void }) {
-	const [open, setOpen] = useState(false);
-	const ref = useRef<HTMLDivElement>(null);
+function MoveToFolderMenu({
+	folders,
+	onMove,
+}: {
+	folders: Folder[]
+	onMove: (id: string) => void
+}) {
+	const [open, setOpen] = useState(false)
+	const ref = useRef<HTMLDivElement>(null)
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) return
 		const handler = (e: MouseEvent) => {
-			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-		};
-		document.addEventListener("mousedown", handler);
-		return () => document.removeEventListener("mousedown", handler);
-	}, [open]);
+			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+		}
+		document.addEventListener("mousedown", handler)
+		return () => document.removeEventListener("mousedown", handler)
+	}, [open])
 
 	return (
 		<div ref={ref} className="relative">
@@ -229,7 +235,10 @@ function MoveToFolderMenu({ folders, onMove }: { folders: Folder[]; onMove: (id:
 							key={f.id}
 							type="button"
 							className="w-full text-left px-3 py-1.5 text-sm text-kumo-default hover:bg-kumo-overlay transition-colors"
-							onClick={() => { onMove(f.id); setOpen(false); }}
+							onClick={() => {
+								onMove(f.id)
+								setOpen(false)
+							}}
 						>
 							{f.name}
 						</button>
@@ -237,5 +246,5 @@ function MoveToFolderMenu({ folders, onMove }: { folders: Folder[]; onMove: (id:
 				</div>
 			)}
 		</div>
-	);
+	)
 }

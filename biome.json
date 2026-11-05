@@ -1,0 +1,102 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
+	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+	"files": {
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/build",
+			"!**/coverage",
+			"!**/*.md",
+			"!**/skills-lock.json",
+			"!**/.agents",
+			"!**/.claude",
+			"!**/.gemini",
+			"!**/.react-router",
+			"!**/.wrangler",
+			"!**/worker-configuration.d.ts",
+			"!**/*.tsbuildinfo",
+			"!**/*.svg",
+			"!**/*.css"
+		]
+	},
+	"formatter": { "indentStyle": "tab", "lineWidth": 100 },
+	"javascript": { "formatter": { "semicolons": "asNeeded", "quoteStyle": "double" } },
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"complexity": {
+				"noExcessiveCognitiveComplexity": {
+					"level": "error",
+					"options": { "maxAllowedComplexity": 10 }
+				},
+				"useLiteralKeys": "off"
+			},
+			"correctness": {
+				"noUnusedImports": "error",
+				"noUnusedVariables": "error"
+			},
+			"style": {
+				"noExcessiveLinesPerFile": {
+					"level": "error",
+					"options": { "maxLines": 100, "skipBlankLines": true }
+				},
+				"noNonNullAssertion": "off",
+				"useImportType": "error",
+				"useExportType": "error"
+			},
+			"suspicious": {
+				"noExplicitAny": "error",
+				"noImplicitAnyLet": "error"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["**/*.test.ts"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noExcessiveLinesPerFile": {
+							"level": "error",
+							"options": { "maxLines": 200, "skipBlankLines": true }
+						}
+					}
+				}
+			}
+		},
+		{
+			"includes": ["app/**", "workers/**"],
+			"linter": {
+				"rules": {
+					"a11y": {
+						"noLabelWithoutControl": "off",
+						"useSemanticElements": "off"
+					},
+					"complexity": {
+						"noExcessiveCognitiveComplexity": "off",
+						"noUselessFragments": "off",
+						"useMathMinMax": "off",
+						"useOptionalChain": "off"
+					},
+					"correctness": {
+						"noUnusedFunctionParameters": "off"
+					},
+					"performance": {
+						"useDomNodeTextContent": "off"
+					},
+					"style": {
+						"noExcessiveLinesPerFile": "off"
+					},
+					"suspicious": {
+						"noAssignInExpressions": "off",
+						"noControlCharactersInRegex": "off",
+						"noExplicitAny": "off",
+						"noGlobalIsNan": "off"
+					}
+				}
+			}
+		}
+	],
+	"assist": { "actions": { "source": { "organizeImports": "on" } } }
+}

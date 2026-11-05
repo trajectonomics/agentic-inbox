@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Badge, Button, Dialog, Input, Tooltip } from "@cloudflare/kumo";
+import { Badge, Button, Dialog, Input, Tooltip } from "@cloudflare/kumo"
 import {
 	ArchiveIcon,
 	CaretLeftIcon,
@@ -13,13 +13,13 @@ import {
 	PlusIcon,
 	TrashIcon,
 	TrayIcon,
-} from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
-import { NavLink, useNavigate, useParams } from "react-router";
-import { Folders, SYSTEM_FOLDER_IDS } from "shared/folders";
-import { useCreateFolder, useFolders } from "~/queries/folders";
-import { useMailbox } from "~/queries/mailboxes";
-import { useUIStore } from "~/hooks/useUIStore";
+} from "@phosphor-icons/react"
+import { useMemo, useState } from "react"
+import { NavLink, useNavigate, useParams } from "react-router"
+import { Folders, SYSTEM_FOLDER_IDS } from "shared/folders"
+import { useUIStore } from "~/hooks/useUIStore"
+import { useCreateFolder, useFolders } from "~/queries/folders"
+import { useMailbox } from "~/queries/mailboxes"
 
 const FOLDER_ICONS: Record<string, React.ReactNode> = {
 	[Folders.INBOX]: <TrayIcon size={18} weight="regular" />,
@@ -27,7 +27,7 @@ const FOLDER_ICONS: Record<string, React.ReactNode> = {
 	[Folders.DRAFT]: <FileIcon size={18} weight="regular" />,
 	[Folders.ARCHIVE]: <ArchiveIcon size={18} weight="regular" />,
 	[Folders.TRASH]: <TrashIcon size={18} weight="regular" />,
-};
+}
 
 const SYSTEM_FOLDER_LINKS = [
 	{ id: Folders.INBOX, label: "Inbox" },
@@ -35,23 +35,17 @@ const SYSTEM_FOLDER_LINKS = [
 	{ id: Folders.DRAFT, label: "Drafts" },
 	{ id: Folders.ARCHIVE, label: "Archive" },
 	{ id: Folders.TRASH, label: "Trash" },
-];
+]
 
 interface FolderLinkProps {
-	to: string;
-	icon: React.ReactNode;
-	label: string;
-	unreadCount?: number;
-	onClick?: () => void;
+	to: string
+	icon: React.ReactNode
+	label: string
+	unreadCount?: number
+	onClick?: () => void
 }
 
-function FolderLink({
-	to,
-	icon,
-	label,
-	unreadCount,
-	onClick,
-}: FolderLinkProps) {
+function FolderLink({ to, icon, label, unreadCount, onClick }: FolderLinkProps) {
 	return (
 		<NavLink
 			to={to}
@@ -66,59 +60,56 @@ function FolderLink({
 		>
 			<span className="shrink-0">{icon}</span>
 			<span className="truncate flex-1">{label}</span>
-			{unreadCount != null && unreadCount > 0 && (
-				<Badge variant="secondary">{unreadCount}</Badge>
-			)}
+			{unreadCount != null && unreadCount > 0 && <Badge variant="secondary">{unreadCount}</Badge>}
 		</NavLink>
-	);
+	)
 }
 
 export default function Sidebar() {
-	const { mailboxId } = useParams<{ mailboxId: string }>();
-	const navigate = useNavigate();
-	const { data: folders = [] } = useFolders(mailboxId);
-	const createFolderMutation = useCreateFolder();
-	const { startCompose, closeSidebar } = useUIStore();
-	const { data: currentMailbox } = useMailbox(mailboxId);
-	const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
-	const [newFolderName, setNewFolderName] = useState("");
+	const { mailboxId } = useParams<{ mailboxId: string }>()
+	const navigate = useNavigate()
+	const { data: folders = [] } = useFolders(mailboxId)
+	const createFolderMutation = useCreateFolder()
+	const { startCompose, closeSidebar } = useUIStore()
+	const { data: currentMailbox } = useMailbox(mailboxId)
+	const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
+	const [newFolderName, setNewFolderName] = useState("")
 
 	const customFolders = useMemo(
-		() =>
-			folders.filter((f) => !(SYSTEM_FOLDER_IDS as readonly string[]).includes(f.id)),
+		() => folders.filter((f) => !(SYSTEM_FOLDER_IDS as readonly string[]).includes(f.id)),
 		[folders],
-	);
+	)
 
 	const getUnreadCount = (folderId: string) => {
-		const found = folders.find((f) => f.id === folderId);
-		return found?.unreadCount || 0;
-	};
+		const found = folders.find((f) => f.id === folderId)
+		return found?.unreadCount || 0
+	}
 
 	const handleCreateFolder = (e: React.FormEvent) => {
-		e.preventDefault();
+		e.preventDefault()
 		if (newFolderName.trim() && mailboxId) {
-			createFolderMutation.mutate({ mailboxId, name: newFolderName.trim() });
-			setNewFolderName("");
-			setIsCreateFolderOpen(false);
+			createFolderMutation.mutate({ mailboxId, name: newFolderName.trim() })
+			setNewFolderName("")
+			setIsCreateFolderOpen(false)
 		}
-	};
+	}
 
 	const displayName = useMemo(() => {
-		if (!currentMailbox) return mailboxId?.split("@")[0] || "Mailbox";
+		if (!currentMailbox) return mailboxId?.split("@")[0] || "Mailbox"
 		// Prefer settings.fromName > name > local part of email
 		if (currentMailbox.settings?.fromName) {
-			return currentMailbox.settings.fromName;
+			return currentMailbox.settings.fromName
 		}
 		if (currentMailbox.name && currentMailbox.name !== currentMailbox.email) {
-			return currentMailbox.name;
+			return currentMailbox.name
 		}
-		return currentMailbox.email.split("@")[0] || currentMailbox.name;
-	}, [currentMailbox, mailboxId]);
+		return currentMailbox.email.split("@")[0] || currentMailbox.name
+	}, [currentMailbox, mailboxId])
 
 	const handleNavClick = () => {
 		// Close mobile sidebar on navigation
-		closeSidebar();
-	};
+		closeSidebar()
+	}
 
 	return (
 		<aside className="h-full w-64 bg-kumo-recessed flex flex-col shrink-0 border-r border-kumo-line">
@@ -127,8 +118,8 @@ export default function Sidebar() {
 				<button
 					type="button"
 					onClick={() => {
-						navigate("/");
-						closeSidebar();
+						navigate("/")
+						closeSidebar()
 					}}
 					className="flex items-center gap-1.5 text-kumo-subtle text-sm hover:text-kumo-default transition-colors mb-2.5 cursor-pointer bg-transparent border-0 p-0"
 				>
@@ -136,9 +127,7 @@ export default function Sidebar() {
 					<span>Mailboxes</span>
 				</button>
 				<div className="px-1">
-					<div className="text-base font-semibold text-kumo-default truncate">
-						{displayName}
-					</div>
+					<div className="text-base font-semibold text-kumo-default truncate">{displayName}</div>
 					<div className="text-sm text-kumo-subtle truncate mt-0.5">
 						{currentMailbox?.email || mailboxId}
 					</div>
@@ -224,14 +213,9 @@ export default function Sidebar() {
 			</nav>
 
 			{/* Create folder dialog */}
-			<Dialog.Root
-				open={isCreateFolderOpen}
-				onOpenChange={setIsCreateFolderOpen}
-			>
+			<Dialog.Root open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
 				<Dialog size="sm" className="p-6">
-					<Dialog.Title className="text-base font-semibold mb-4">
-						Create folder
-					</Dialog.Title>
+					<Dialog.Title className="text-base font-semibold mb-4">Create folder</Dialog.Title>
 					<form onSubmit={handleCreateFolder} className="space-y-4">
 						<Input
 							label="Folder name"
@@ -248,11 +232,7 @@ export default function Sidebar() {
 									</Button>
 								)}
 							/>
-							<Button
-								type="submit"
-								variant="primary"
-								disabled={!newFolderName.trim()}
-							>
+							<Button type="submit" variant="primary" disabled={!newFolderName.trim()}>
 								Create
 							</Button>
 						</div>
@@ -260,5 +240,5 @@ export default function Sidebar() {
 				</Dialog>
 			</Dialog.Root>
 		</aside>
-	);
+	)
 }

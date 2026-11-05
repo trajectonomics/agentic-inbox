@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Badge, Button, Tooltip } from "@cloudflare/kumo";
+import { Badge, Button, Tooltip } from "@cloudflare/kumo"
 import {
 	CaretDownIcon,
 	CaretUpIcon,
@@ -10,34 +10,37 @@ import {
 	PaperPlaneTiltIcon,
 	PencilSimpleIcon,
 	TrashIcon,
-} from "@phosphor-icons/react";
-import EmailAttachmentList from "~/components/EmailAttachmentList";
-import EmailIframe from "~/components/EmailIframe";
-import {
-	formatDetailDate,
-	formatShortDate,
-	rewriteInlineImages,
-	stripHtml,
-} from "~/lib/utils";
-import type { Email } from "~/types";
+} from "@phosphor-icons/react"
+import EmailAttachmentList from "~/components/EmailAttachmentList"
+import EmailIframe from "~/components/EmailIframe"
+import { formatDetailDate, formatShortDate, rewriteInlineImages, stripHtml } from "~/lib/utils"
+import type { Email } from "~/types"
 
 interface ThreadMessageProps {
-	email: Email;
-	mailboxId?: string;
-	mailboxEmail?: string;
-	isLast: boolean;
-	isDraft?: boolean;
-	isSending?: boolean;
-	isExpanded: boolean;
-	onToggleExpand: () => void;
-	onSendDraft?: () => void;
-	onEditDraft?: () => void;
-	onDeleteDraft?: () => void;
-	onViewSource?: () => void;
-	onPreviewImage?: (url: string, filename: string) => void;
+	email: Email
+	mailboxId?: string
+	mailboxEmail?: string
+	isLast: boolean
+	isDraft?: boolean
+	isSending?: boolean
+	isExpanded: boolean
+	onToggleExpand: () => void
+	onSendDraft?: () => void
+	onEditDraft?: () => void
+	onDeleteDraft?: () => void
+	onViewSource?: () => void
+	onPreviewImage?: (url: string, filename: string) => void
 }
 
-function Avatar({ isDraft, isSelf, sender }: { isDraft?: boolean; isSelf: boolean; sender: string }) {
+function Avatar({
+	isDraft,
+	isSelf,
+	sender,
+}: {
+	isDraft?: boolean
+	isSelf: boolean
+	sender: string
+}) {
 	return (
 		<div
 			className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
@@ -50,7 +53,7 @@ function Avatar({ isDraft, isSelf, sender }: { isDraft?: boolean; isSelf: boolea
 		>
 			{isDraft ? "D" : sender.charAt(0).toUpperCase()}
 		</div>
-	);
+	)
 }
 
 export default function ThreadMessage({
@@ -68,9 +71,9 @@ export default function ThreadMessage({
 	onViewSource,
 	onPreviewImage,
 }: ThreadMessageProps) {
-	const isSelf = email.sender === mailboxEmail;
-	const containerClassName = `${!isLast ? "border-b border-kumo-line" : ""} ${isDraft ? "border-l-2 border-l-kumo-warning bg-kumo-warning/[0.02]" : ""}`;
-	const senderLabel = isDraft ? "Draft reply" : isSelf ? "You" : email.sender;
+	const isSelf = email.sender === mailboxEmail
+	const containerClassName = `${!isLast ? "border-b border-kumo-line" : ""} ${isDraft ? "border-l-2 border-l-kumo-warning bg-kumo-warning/[0.02]" : ""}`
+	const senderLabel = isDraft ? "Draft reply" : isSelf ? "You" : email.sender
 
 	if (!isExpanded) {
 		return (
@@ -83,9 +86,7 @@ export default function ThreadMessage({
 					<Avatar isDraft={isDraft} isSelf={isSelf} sender={email.sender} />
 					<div className="flex-1 min-w-0">
 						<div className="flex items-center justify-between">
-							<span className="text-sm font-medium text-kumo-default truncate">
-								{senderLabel}
-							</span>
+							<span className="text-sm font-medium text-kumo-default truncate">{senderLabel}</span>
 							<span className="text-xs text-kumo-subtle shrink-0">
 								{formatDetailDate(email.date)}
 							</span>
@@ -97,7 +98,7 @@ export default function ThreadMessage({
 					<CaretDownIcon size={14} className="text-kumo-subtle shrink-0" />
 				</button>
 			</div>
-		);
+		)
 	}
 
 	return (
@@ -126,9 +127,7 @@ export default function ThreadMessage({
 						</div>
 					</div>
 					<div className="flex items-center gap-1 shrink-0">
-						<span className="text-xs text-kumo-subtle">
-							{formatShortDate(email.date)}
-						</span>
+						<span className="text-xs text-kumo-subtle">{formatShortDate(email.date)}</span>
 						{onViewSource && (
 							<Tooltip content="View source" side="bottom" asChild>
 								<Button
@@ -216,5 +215,5 @@ export default function ThreadMessage({
 				/>
 			</div>
 		</div>
-	);
+	)
 }

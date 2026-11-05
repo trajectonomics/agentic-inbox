@@ -17,9 +17,9 @@ export const Folders = {
 	ARCHIVE: "archive",
 	TRASH: "trash",
 	SPAM: "spam",
-} as const;
+} as const
 
-export type FolderId = (typeof Folders)[keyof typeof Folders];
+export type FolderId = (typeof Folders)[keyof typeof Folders]
 
 /**
  * System folder IDs that appear in the sidebar (excludes spam).
@@ -31,7 +31,7 @@ export const SYSTEM_FOLDER_IDS: readonly FolderId[] = [
 	Folders.DRAFT,
 	Folders.ARCHIVE,
 	Folders.TRASH,
-];
+]
 
 /**
  * Human-readable display names for folder IDs.
@@ -44,20 +44,21 @@ export const FOLDER_DISPLAY_NAMES: Record<string, string> = {
 	[Folders.ARCHIVE]: "Archive",
 	[Folders.TRASH]: "Trash",
 	[Folders.SPAM]: "Spam",
-};
+}
 
 /** Formatted string for tool parameter descriptions (agent + MCP). */
-export const FOLDER_TOOL_DESCRIPTION =
-	"Folder to list: inbox, sent, draft, archive, trash";
+export const FOLDER_TOOL_DESCRIPTION = "Folder to list: inbox, sent, draft, archive, trash"
 
 /** Formatted string for move-email tool descriptions. */
-export const MOVE_FOLDER_TOOL_DESCRIPTION =
-	"Target folder: inbox, sent, draft, archive, trash";
+export const MOVE_FOLDER_TOOL_DESCRIPTION = "Target folder: inbox, sent, draft, archive, trash"
 
 /**
  * Look up a display name for a folder ID, falling back to the raw ID
  * with a capitalised first letter.
  */
 export function getFolderDisplayName(folderId: string): string {
-	return FOLDER_DISPLAY_NAMES[folderId.toLowerCase()] || folderId.charAt(0).toUpperCase() + folderId.slice(1);
+	return (
+		FOLDER_DISPLAY_NAMES[folderId.toLowerCase()] ||
+		folderId.charAt(0).toUpperCase() + folderId.slice(1)
+	)
 }

@@ -2,41 +2,32 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { useEffect, useRef } from "react";
-import { Outlet, useParams } from "react-router";
-import AgentSidebar from "~/components/AgentSidebar";
-import ComposeEmail from "~/components/ComposeEmail";
-import Header from "~/components/Header";
-import Sidebar from "~/components/Sidebar";
-import { useMailbox } from "~/queries/mailboxes";
-import { useUIStore } from "~/hooks/useUIStore";
+import { useEffect, useRef } from "react"
+import { Outlet, useParams } from "react-router"
+import AgentSidebar from "~/components/AgentSidebar"
+import ComposeEmail from "~/components/ComposeEmail"
+import Header from "~/components/Header"
+import Sidebar from "~/components/Sidebar"
+import { useUIStore } from "~/hooks/useUIStore"
+import { useMailbox } from "~/queries/mailboxes"
 
 export default function MailboxRoute() {
-	const { mailboxId } = useParams<{ mailboxId: string }>();
+	const { mailboxId } = useParams<{ mailboxId: string }>()
 	// Prefetch mailbox data for child components
-	useMailbox(mailboxId);
-	const prevMailboxIdRef = useRef<string | undefined>(undefined);
-	const {
-		isSidebarOpen,
-		closeSidebar,
-		isAgentPanelOpen,
-		closePanel,
-		closeComposeModal,
-	} = useUIStore();
+	useMailbox(mailboxId)
+	const prevMailboxIdRef = useRef<string | undefined>(undefined)
+	const { isSidebarOpen, closeSidebar, isAgentPanelOpen, closePanel, closeComposeModal } =
+		useUIStore()
 
 	useEffect(() => {
-		if (
-			prevMailboxIdRef.current &&
-			mailboxId &&
-			prevMailboxIdRef.current !== mailboxId
-		) {
-			closePanel();
-			closeComposeModal();
-			closeSidebar();
+		if (prevMailboxIdRef.current && mailboxId && prevMailboxIdRef.current !== mailboxId) {
+			closePanel()
+			closeComposeModal()
+			closeSidebar()
 		}
 
-		prevMailboxIdRef.current = mailboxId;
-	}, [mailboxId, closeComposeModal, closePanel, closeSidebar]);
+		prevMailboxIdRef.current = mailboxId
+	}, [mailboxId, closeComposeModal, closePanel, closeSidebar])
 
 	return (
 		<div className="flex h-screen overflow-hidden">
@@ -78,5 +69,5 @@ export default function MailboxRoute() {
 
 			<ComposeEmail />
 		</div>
-	);
+	)
 }

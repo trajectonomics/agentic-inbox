@@ -2,58 +2,57 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import type { Context } from "hono";
-import { sendEmail } from "../email-sender";
-import { storeAttachments } from "../lib/attachments";
-import type { EmailFull } from "../lib/schemas";
+import type { Context } from "hono"
+import { Folders } from "../../shared/folders"
+import { sendEmail } from "../email-sender"
+import { storeAttachments } from "../lib/attachments"
 import {
-	validateSender,
-	SenderValidationError,
-	generateMessageId,
 	buildReferencesChain,
 	buildThreadingHeaders,
+	generateMessageId,
 	resolveOriginalEmail,
-} from "../lib/email-helpers";
-import { SendEmailRequestSchema } from "../lib/schemas";
-import { Folders } from "../../shared/folders";
-import type { MailboxContext } from "../lib/mailbox";
+	SenderValidationError,
+	validateSender,
+} from "../lib/email-helpers"
+import type { MailboxContext } from "../lib/mailbox"
+import type { EmailFull } from "../lib/schemas"
+import { SendEmailRequestSchema } from "../lib/schemas"
 
-type AppContext = Context<MailboxContext>;
-type RateLimitStub = { checkSendRateLimit: () => Promise<string | null> };
+type AppContext = Context<MailboxContext>
+type RateLimitStub = { checkSendRateLimit: () => Promise<string | null> }
 
 export async function handleReplyEmail(c: AppContext) {
-	const mailboxId = c.req.param("mailboxId") ?? "";
-	const id = c.req.param("id") ?? "";
-	const body = SendEmailRequestSchema.parse(await c.req.json());
-	const { to, cc, bcc, from, subject, html, text, attachments } = body;
+	const mailboxId = c.req.param("mailboxId") ?? ""
+	const id = c.req.param("id") ?? ""
+	const body = SendEmailRequestSchema.parse(await c.req.json())
+	const { to, cc, bcc, from, subject, html, text, attachments } = body
 
-	const stub = c.var.mailboxStub;
-	const rawOriginal = (await stub.getEmail(id)) as EmailFull | null;
+	const stub = c.var.mailboxStub
+	const rawOriginal = (await stub.getEmail(id)) as EmailFull | null
 
 	if (!rawOriginal) {
-		return c.json({ error: "Original email not found" }, 404);
+		return c.json({ error: "Original email not found" }, 404)
 	}
 
-	const originalEmail = await resolveOriginalEmail(stub, rawOriginal);
-	const { originalMsgId, references, threadId: thread_id } = buildReferencesChain(originalEmail);
+	const originalEmail = await resolveOriginalEmail(stub, rawOriginal)
+	const { originalMsgId, references, threadId: thread_id } = buildReferencesChain(originalEmail)
 
-	let toStr: string, fromEmail: string, fromDomain: string;
+	let toStr: string, fromEmail: string, fromDomain: string
 	try {
-		({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId));
+		;({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId))
 	} catch (e) {
-		if (e instanceof SenderValidationError) return c.json({ error: e.message }, 400);
-		throw e;
+		if (e instanceof SenderValidationError) return c.json({ error: e.message }, 400)
+		throw e
 	}
 
-	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
+	const { messageId, outgoingMessageId } = generateMessageId(fromDomain)
 
-	const rateLimitError = await (stub as unknown as RateLimitStub)
-		.checkSendRateLimit();
+	const rateLimitError = await (stub as unknown as RateLimitStub).checkSendRateLimit()
 	if (rateLimitError) {
-		return c.json({ error: rateLimitError }, 429);
+		return c.json({ error: rateLimitError }, 429)
 	}
 
-	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments);
+	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments)
 
 	await stub.createEmail(
 		Folders.SENT,
@@ -79,13 +78,15 @@ export async function handleReplyEmail(c: AppContext) {
 				{ key: "date", value: new Date().toISOString() },
 				{ key: "message-id", value: `<${outgoingMessageId}>` },
 				...(originalMsgId ? [{ key: "in-reply-to", value: `<${originalMsgId}>` }] : []),
-				...(references.length > 0 ? [{ key: "references", value: references.map((r: string) => `<${r}>`).join(" ") }] : []),
+				...(references.length > 0
+					? [{ key: "references", value: references.map((r: string) => `<${r}>`).join(" ") }]
+					: []),
 			]),
 		},
 		attachmentData,
-	);
+	)
 
-	await stub.markThreadRead(thread_id);
+	await stub.markThreadRead(thread_id)
 
 	c.executionCtx.waitUntil(
 		sendEmail(c.env.EMAIL, {
@@ -105,45 +106,44 @@ export async function handleReplyEmail(c: AppContext) {
 			})),
 			headers: buildThreadingHeaders(originalMsgId, references),
 		}).catch((e) => {
-			console.error("Deferred reply delivery failed:", (e as Error).message);
+			console.error("Deferred reply delivery failed:", (e as Error).message)
 		}),
-	);
+	)
 
-	return c.json({ id: messageId, status: "sent" }, 202);
+	return c.json({ id: messageId, status: "sent" }, 202)
 }
 
 export async function handleForwardEmail(c: AppContext) {
-	const mailboxId = c.req.param("mailboxId") ?? "";
-	const id = c.req.param("id") ?? "";
-	const body = SendEmailRequestSchema.parse(await c.req.json());
-	const { to, cc, bcc, from, subject, html, text, attachments } = body;
+	const mailboxId = c.req.param("mailboxId") ?? ""
+	const id = c.req.param("id") ?? ""
+	const body = SendEmailRequestSchema.parse(await c.req.json())
+	const { to, cc, bcc, from, subject, html, text, attachments } = body
 
-	const stub = c.var.mailboxStub;
-	const rawOriginal = (await stub.getEmail(id)) as EmailFull | null;
+	const stub = c.var.mailboxStub
+	const rawOriginal = (await stub.getEmail(id)) as EmailFull | null
 
 	if (!rawOriginal) {
-		return c.json({ error: "Original email not found" }, 404);
+		return c.json({ error: "Original email not found" }, 404)
 	}
 
-	await resolveOriginalEmail(stub, rawOriginal);
+	await resolveOriginalEmail(stub, rawOriginal)
 
-	let toStr: string, fromEmail: string, fromDomain: string;
+	let toStr: string, fromEmail: string, fromDomain: string
 	try {
-		({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId));
+		;({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId))
 	} catch (e) {
-		if (e instanceof SenderValidationError) return c.json({ error: e.message }, 400);
-		throw e;
+		if (e instanceof SenderValidationError) return c.json({ error: e.message }, 400)
+		throw e
 	}
 
-	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
+	const { messageId, outgoingMessageId } = generateMessageId(fromDomain)
 
-	const rateLimitError = await (stub as unknown as RateLimitStub)
-		.checkSendRateLimit();
+	const rateLimitError = await (stub as unknown as RateLimitStub).checkSendRateLimit()
 	if (rateLimitError) {
-		return c.json({ error: rateLimitError }, 429);
+		return c.json({ error: rateLimitError }, 429)
 	}
 
-	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments);
+	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments)
 
 	await stub.createEmail(
 		Folders.SENT,
@@ -171,7 +171,7 @@ export async function handleForwardEmail(c: AppContext) {
 			]),
 		},
 		attachmentData,
-	);
+	)
 
 	c.executionCtx.waitUntil(
 		sendEmail(c.env.EMAIL, {
@@ -190,9 +190,9 @@ export async function handleForwardEmail(c: AppContext) {
 				contentId: att.contentId,
 			})),
 		}).catch((e) => {
-			console.error("Deferred forward delivery failed:", (e as Error).message);
+			console.error("Deferred forward delivery failed:", (e as Error).message)
 		}),
-	);
+	)
 
-	return c.json({ id: messageId, status: "sent" }, 202);
+	return c.json({ id: messageId, status: "sent" }, 202)
 }

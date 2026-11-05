@@ -2,32 +2,32 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Loader } from "@cloudflare/kumo";
-import { PlugsIcon, RobotIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
-import MCPPanel from "./MCPPanel";
+import { Loader } from "@cloudflare/kumo"
+import { PlugsIcon, RobotIcon } from "@phosphor-icons/react"
+import { useEffect, useState } from "react"
+import MCPPanel from "./MCPPanel"
 
 function LazyAgentPanel() {
-	const [AgentChat, setAgentChat] = useState<React.ComponentType | null>(
-		null,
-	);
-	const [loadError, setLoadError] = useState<string | null>(null);
+	const [AgentChat, setAgentChat] = useState<React.ComponentType | null>(null)
+	const [loadError, setLoadError] = useState<string | null>(null)
 
 	useEffect(() => {
-		import("~/components/AgentPanel").then((mod) => {
-			setAgentChat(() => mod.default);
-		}).catch((err) => {
-			console.error("Failed to load AgentPanel:", err);
-			setLoadError("Failed to load agent panel");
-		});
-	}, []);
+		import("~/components/AgentPanel")
+			.then((mod) => {
+				setAgentChat(() => mod.default)
+			})
+			.catch((err) => {
+				console.error("Failed to load AgentPanel:", err)
+				setLoadError("Failed to load agent panel")
+			})
+	}, [])
 
 	if (loadError) {
 		return (
 			<div className="flex items-center justify-center h-full">
 				<span className="text-xs text-kumo-error">{loadError}</span>
 			</div>
-		);
+		)
 	}
 	if (!AgentChat) {
 		return (
@@ -35,13 +35,13 @@ function LazyAgentPanel() {
 				<Loader size="base" />
 				<span className="text-xs text-kumo-subtle">Loading agent...</span>
 			</div>
-		);
+		)
 	}
-	return <AgentChat />;
+	return <AgentChat />
 }
 
 export default function AgentSidebar() {
-	const [activeTab, setActiveTab] = useState<"agent" | "mcp">("agent");
+	const [activeTab, setActiveTab] = useState<"agent" | "mcp">("agent")
 
 	return (
 		<div className="flex flex-col h-full">
@@ -81,5 +81,5 @@ export default function AgentSidebar() {
 				{activeTab === "mcp" && <MCPPanel />}
 			</div>
 		</div>
-	);
+	)
 }

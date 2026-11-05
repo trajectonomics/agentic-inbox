@@ -2,57 +2,57 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Button, Dialog } from "@cloudflare/kumo";
-import { downloadFile } from "~/lib/utils";
-import type { Email } from "~/types";
+import { Button, Dialog } from "@cloudflare/kumo"
+import { downloadFile } from "~/lib/utils"
+import type { Email } from "~/types"
 
 interface PreviewImage {
-	url: string;
-	filename: string;
+	url: string
+	filename: string
 }
 
 interface EmailPanelDialogsProps {
-	sourceViewEmail: Email | null;
-	previewImage: PreviewImage | null;
-	onCloseSource: () => void;
-	onClosePreview: () => void;
+	sourceViewEmail: Email | null
+	previewImage: PreviewImage | null
+	onCloseSource: () => void
+	onClosePreview: () => void
 }
 
 function getSourceHeaders(msg: Email): { key: string; value: string }[] {
 	if (msg.raw_headers) {
 		try {
-			const parsed = JSON.parse(msg.raw_headers);
+			const parsed = JSON.parse(msg.raw_headers)
 			if (Array.isArray(parsed)) {
 				return parsed.map((header) => ({
 					key: header.key || header.name || "",
 					value: String(header.value || ""),
-				}));
+				}))
 			}
 			if (typeof parsed === "object" && parsed !== null) {
 				return Object.entries(parsed).map(([key, value]) => ({
 					key,
 					value: String(value),
-				}));
+				}))
 			}
 		} catch {
 			// Fall through to field-based headers.
 		}
 	}
 
-	const headers: { key: string; value: string }[] = [];
-	if (msg.sender) headers.push({ key: "From", value: msg.sender });
-	if (msg.recipient) headers.push({ key: "To", value: msg.recipient });
-	if (msg.cc) headers.push({ key: "Cc", value: msg.cc });
-	if (msg.bcc) headers.push({ key: "Bcc", value: msg.bcc });
-	if (msg.subject) headers.push({ key: "Subject", value: msg.subject });
-	if (msg.date) headers.push({ key: "Date", value: msg.date });
-	if (msg.message_id) headers.push({ key: "Message-ID", value: msg.message_id });
-	if (msg.in_reply_to) headers.push({ key: "In-Reply-To", value: msg.in_reply_to });
+	const headers: { key: string; value: string }[] = []
+	if (msg.sender) headers.push({ key: "From", value: msg.sender })
+	if (msg.recipient) headers.push({ key: "To", value: msg.recipient })
+	if (msg.cc) headers.push({ key: "Cc", value: msg.cc })
+	if (msg.bcc) headers.push({ key: "Bcc", value: msg.bcc })
+	if (msg.subject) headers.push({ key: "Subject", value: msg.subject })
+	if (msg.date) headers.push({ key: "Date", value: msg.date })
+	if (msg.message_id) headers.push({ key: "Message-ID", value: msg.message_id })
+	if (msg.in_reply_to) headers.push({ key: "In-Reply-To", value: msg.in_reply_to })
 	if (msg.email_references) {
-		headers.push({ key: "References", value: msg.email_references });
+		headers.push({ key: "References", value: msg.email_references })
 	}
-	if (msg.thread_id) headers.push({ key: "X-Thread-ID", value: msg.thread_id });
-	return headers;
+	if (msg.thread_id) headers.push({ key: "X-Thread-ID", value: msg.thread_id })
+	return headers
 }
 
 export default function EmailPanelDialogs({
@@ -61,14 +61,14 @@ export default function EmailPanelDialogs({
 	onCloseSource,
 	onClosePreview,
 }: EmailPanelDialogsProps) {
-	const sourceHeaders = sourceViewEmail ? getSourceHeaders(sourceViewEmail) : [];
+	const sourceHeaders = sourceViewEmail ? getSourceHeaders(sourceViewEmail) : []
 
 	return (
 		<>
 			<Dialog.Root
 				open={sourceViewEmail !== null}
 				onOpenChange={(open) => {
-					if (!open) onCloseSource();
+					if (!open) onCloseSource()
 				}}
 			>
 				<Dialog size="lg">
@@ -119,7 +119,7 @@ export default function EmailPanelDialogs({
 			<Dialog.Root
 				open={previewImage !== null}
 				onOpenChange={(open) => {
-					if (!open) onClosePreview();
+					if (!open) onClosePreview()
 				}}
 			>
 				<Dialog size="lg">
@@ -139,7 +139,7 @@ export default function EmailPanelDialogs({
 							size="sm"
 							onClick={() => {
 								if (previewImage) {
-									downloadFile(previewImage.url, previewImage.filename);
+									downloadFile(previewImage.url, previewImage.filename)
 								}
 							}}
 						>
@@ -154,5 +154,5 @@ export default function EmailPanelDialogs({
 				</Dialog>
 			</Dialog.Root>
 		</>
-	);
+	)
 }
