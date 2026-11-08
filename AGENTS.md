@@ -10,6 +10,8 @@ Instructions for AI coding agents in `trajectonomics/agentic-inbox` (`agentic-in
 4. Bun only: `bun install`, `bun test`, `bun run <script>`. Do not add npm/pnpm/yarn lockfiles.
 5. Done means `bun run check` passes (`bun run lint`, `bun run typecheck`, `bun run test`, `bun run build`). `bun run format` fixes formatting and import order. Do not loosen `biome.json` simply to silence an error.
 6. PR titles are conventional commits (`feat:`, `fix:`, `chore:`, etc.) because CI validates them (`.github/workflows/pr-title.yml`).
+7. Pi (`pi.dev`) model restriction: When running the Pi coding agent (`pi.dev`), strictly use **DeepSeek 4.1 Flash** only (e.g., `deepseek/deepseek-v4.1-flash`, `deepseek/deepseek-v4.1-flash-fast`), whether routed via Command Code GOAT (`command-code`) or OpenCode Go (`opencode`). Do not switch to or run any other models (Claude, GPT, Gemini, etc.) in Pi sessions for this repository. This rule is mechanically enforced via `.pi/settings.json`.
+
 
 ## Secrets & Environment Variables
 
