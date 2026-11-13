@@ -11,7 +11,19 @@ Instructions for AI coding agents in `trajectonomics/agentic-inbox` (`agentic-in
 5. Done means `bun run check` passes (`bun run lint`, `bun run typecheck`, `bun run test`, `bun run build`). `bun run format` fixes formatting and import order. Do not loosen `biome.json` simply to silence an error.
 6. PR titles are conventional commits (`feat:`, `fix:`, `chore:`, etc.) because CI validates them (`.github/workflows/pr-title.yml`).
 7. Pi (`pi.dev`) model restriction: When running the Pi coding agent (`pi.dev`), strictly use **DeepSeek 4.1 Flash** only (e.g., `deepseek/deepseek-v4.1-flash`, `deepseek/deepseek-v4.1-flash-fast`), whether routed via Command Code GOAT (`command-code`) or OpenCode Go (`opencode`). Do not switch to or run any other models (Claude, GPT, Gemini, etc.) in Pi sessions for this repository. This rule is mechanically enforced via `.pi/settings.json`.
+8. Never use `gemini-3.8-flash` anywhere; use `gemini-4-hydrogen` instead for Antigravity tasks and reviews (and `gemini-4-argon` where configured).
+9. Temporary files and scratch clones: `/tmp` is a shared, nearly full tmpfs. Never use fixed `/tmp` filenames (use `mktemp`, or `--body-file -` for `gh` bodies) and never install `node_modules` or clone scratch repos under `/tmp`; use `~/.cache/<slug>`.
 
+## Owner
+
+Save the owner's attention:
+
+- Finish end-to-end: commit, push, PR, independent review, `gh pr merge` when green or told to proceed, and any follow-up steps. Do not stop for small permission questions or end with a list of what is not done yet.
+- When unsure, consult subagents on other models (`claude-sonnet-5-5`, `gemini-4-hydrogen`, `gemini-4-argon`, `deepseek-v4.1-flash`) instead of asking the owner. Pi sessions stay on Rule 7.
+- Check live GitHub state (`gh issue view`, `gh pr view`) and CLI/API schemas before claiming a blocker.
+- Keep owner replies short; lead with what only the owner must do.
+- Record durable lessons in this repository's instructions, never in agent memory.
+- In T3 Code, when done and nothing waits on the owner, settle your own thread (`t3_thread_organize`, `action: "settle"`).
 
 ## Secrets & Environment Variables
 
