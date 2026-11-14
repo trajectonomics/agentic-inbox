@@ -62,7 +62,7 @@ Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents
 
 ### Installing and updating skills
 
-Skills come from [`mattpocock/skills`](https://github.com/mattpocock/skills) and [`trajectonomics/internal-skills`](https://github.com/trajectonomics/internal-skills) via the Vercel [`skills`](https://github.com/vercel-labs/skills) CLI and are pinned in `skills-lock.json`. The canonical copy is `.agents/skills/`; `.claude/skills/` holds symlinks into it.
+Skills come from [`mattpocock/skills`](https://github.com/mattpocock/skills) and [`trajectonomics/internal-skills`](https://github.com/trajectonomics/internal-skills) via the Vercel [`skills`](https://github.com/vercel-labs/skills) CLI and are pinned in `skills-lock.json`. The canonical copy is `.agents/skills/`; `.claude/skills/` and `.vibe/skills/` hold symlinks into it (`.vibe/skills/` is what Mistral Vibe discovers).
 
 - Update: `bun run skills:update` (or `bunx skills@latest update`)
 - Check status: `bun run skills:check` (or `bunx skills@latest check`)
