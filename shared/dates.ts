@@ -104,3 +104,21 @@ export function formatQuotedDate(dateStr: string | undefined): string {
 		hour12: true,
 	})
 }
+
+/**
+ * Widen a date bound for a comparison against stored ISO 8601 timestamps.
+ *
+ * A caller that asks for "on or after 2026-11-01" or "on or before
+ * 2026-11-17" means the whole day. Stored dates are full timestamps, so a
+ * date-only bound becomes the start of its day (`start`) or the last
+ * millisecond of its day (`end`). A bound that already carries a time is
+ * returned unchanged, and an absent bound stays absent.
+ */
+export function normalizeIsoDateBound(
+	value: string | undefined,
+	edge: "start" | "end",
+): string | undefined {
+	if (!value) return undefined
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+	return edge === "start" ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`
+}

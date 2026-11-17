@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test"
-import { formatDetailDate, formatListDate, formatQuotedDate, formatShortDate } from "./dates"
+import {
+	formatDetailDate,
+	formatListDate,
+	formatQuotedDate,
+	formatShortDate,
+	normalizeIsoDateBound,
+} from "./dates"
 
 describe("date formatting", () => {
 	it("returns raw input on unparseable list dates", () => {
@@ -43,5 +49,25 @@ describe("date formatting", () => {
 		const quoted = formatQuotedDate(fixedDate)
 		expect(quoted).toContain("2026")
 		expect(quoted).toMatch(/\d+:\d+/)
+	})
+})
+
+describe("date bounds for a stored timestamp", () => {
+	it("starts a date-only lower bound at the beginning of its day", () => {
+		expect(normalizeIsoDateBound("2026-11-01", "start")).toBe("2026-11-01T00:00:00.000Z")
+	})
+
+	it("ends a date-only upper bound at the last millisecond of its day", () => {
+		expect(normalizeIsoDateBound("2026-11-17", "end")).toBe("2026-11-17T23:59:59.999Z")
+	})
+
+	it("leaves a bound that already carries a time alone", () => {
+		expect(normalizeIsoDateBound("2026-11-17T09:30:00.000Z", "end")).toBe(
+			"2026-11-17T09:30:00.000Z",
+		)
+	})
+
+	it("leaves an absent bound absent", () => {
+		expect(normalizeIsoDateBound(undefined, "start")).toBeUndefined()
 	})
 })

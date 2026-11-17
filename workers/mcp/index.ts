@@ -10,6 +10,7 @@ import {
 	Folders,
 	MOVE_FOLDER_TOOL_DESCRIPTION,
 } from "../../shared/folders"
+import { ListAttachmentsFiltersSchema } from "../lib/schemas"
 import {
 	toolDeleteEmail,
 	toolDraftEmail,
@@ -173,17 +174,7 @@ export class EmailMCP extends McpAgent<Env> {
 			"List the files attached to mail in a mailbox, newest mail first, with the subject, sender and date of the email each file arrived on. Filters narrow by email, MIME type, sender or a date window; inline parts are left out unless asked for.",
 			{
 				mailboxId: z.string().describe("The mailbox email address"),
-				emailId: z.string().optional().describe("Only files on this email id"),
-				mimetype: z.string().optional().describe("Only this MIME type, e.g. application/pdf"),
-				sender: z.string().optional().describe("Only files from this sender address"),
-				since: z.string().optional().describe("Only mail dated on or after this ISO 8601 date"),
-				until: z.string().optional().describe("Only mail dated on or before this ISO 8601 date"),
-				includeInline: z
-					.boolean()
-					.optional()
-					.describe("Include inline parts such as signature logos"),
-				limit: z.number().optional().describe("Maximum files to return, 1 to 100; default 25"),
-				offset: z.number().optional().describe("Files to skip, for pagination"),
+				...ListAttachmentsFiltersSchema.shape,
 			},
 			async ({ mailboxId, ...params }) => {
 				const denied = await verifyMailbox(mailboxId)

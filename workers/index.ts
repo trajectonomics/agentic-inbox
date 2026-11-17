@@ -325,7 +325,7 @@ app.delete("/api/v1/mailboxes/:mailboxId/emails/:id", async (c: AppContext) => {
 	if (attachments === null) return c.json({ error: "Not found" }, 404)
 	if (attachments.length > 0)
 		await c.env.BUCKET.delete(
-			attachments.map((att: any) => `attachments/${id}/${att.id}/${att.filename}`),
+			attachments.map((att) => attachmentObjectKey(id, att.id, att.filename)),
 		)
 	return c.body(null, 204)
 })
@@ -407,9 +407,11 @@ app.get("/api/v1/mailboxes/:mailboxId/search", async (c: AppContext) => {
 app.get(
 	"/api/v1/mailboxes/:mailboxId/emails/:emailId/attachments/:attachmentId",
 	async (c: AppContext) => {
+		const emailId = c.req.param("emailId")!
 		const attachmentId = c.req.param("attachmentId")!
 		const attachment = await c.var.mailboxStub.getAttachment(attachmentId)
-		if (!attachment) return c.json({ error: "Attachment not found" }, 404)
+		if (!attachment || attachment.email_id !== emailId)
+			return c.json({ error: "Attachment not found" }, 404)
 		const obj = await c.env.BUCKET.get(
 			attachmentObjectKey(attachment.email_id, attachmentId, attachment.filename),
 		)

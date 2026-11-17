@@ -13,7 +13,7 @@ import {
 } from "../../shared/folders"
 import { isPromptInjection, verifyDraft } from "../lib/ai"
 import { getMailboxStub, stripHtmlToText, textToHtml } from "../lib/email-helpers"
-import type { EmailFull, EmailMetadata } from "../lib/schemas"
+import { type EmailFull, type EmailMetadata, ListAttachmentsFiltersSchema } from "../lib/schemas"
 import {
 	toolDiscardDraft,
 	toolDraftEmail,
@@ -159,19 +159,7 @@ function createEmailTools(env: Env, mailboxId: string) {
 		list_attachments: defineTool({
 			description:
 				"List the files attached to mail in this mailbox, newest mail first. Returns each file's id, filename, MIME type, size and the email it arrived on, so you can narrow by email, MIME type, sender or a date window.",
-			parameters: z.object({
-				emailId: z.string().optional().describe("Only files on this email id"),
-				mimetype: z.string().optional().describe("Only this MIME type, e.g. application/pdf"),
-				sender: z.string().optional().describe("Only files from this sender address"),
-				since: z.string().optional().describe("Only mail dated on or after this ISO 8601 date"),
-				until: z.string().optional().describe("Only mail dated on or before this ISO 8601 date"),
-				includeInline: z
-					.boolean()
-					.optional()
-					.describe("Include inline parts such as signature logos"),
-				limit: z.number().optional().describe("Maximum files to return, 1 to 100; default 25"),
-				offset: z.number().optional().describe("Files to skip, for pagination"),
-			}),
+			parameters: ListAttachmentsFiltersSchema,
 			execute: async (params): Promise<unknown> => {
 				return toolListAttachments(env, mailboxId, params)
 			},

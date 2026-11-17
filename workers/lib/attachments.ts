@@ -122,7 +122,7 @@ export function attachmentObjectKey(
  * the structured types that are JSON or XML in practice.
  */
 export function isTextMimeType(mimetype: string): boolean {
-	const type = mimetype.trim().toLowerCase()
+	const type = mimetype.split(";")[0].trim().toLowerCase()
 	return (
 		type.startsWith("text/") ||
 		type === "application/json" ||
@@ -151,7 +151,7 @@ export function attachmentBodyFor(
 	if (isTextMimeType(mimetype)) {
 		const text = new TextDecoder("utf-8").decode(bytes)
 		if (text.length > MAX_INLINE_ATTACHMENT_CHARS) {
-			return { kind: "text", content: text.slice(0, MAX_INLINE_ATTACHMENT_CHARS), truncated: true }
+			return { kind: "text", content: truncateAtSafeBoundary(text), truncated: true }
 		}
 		return { kind: "text", content: text, truncated: false }
 	}
@@ -211,7 +211,28 @@ export async function readAttachmentBody(
 	const key = attachmentObjectKey(attachment.email_id, attachment.id, attachment.filename)
 	const object = await bucket.get(key)
 	if (!object) return null
+
+	// Refuse an oversized file from its metadata, before buffering it.
+	if (object.size > MAX_INLINE_ATTACHMENT_BYTES) {
+		return {
+			kind: "too_large",
+			sizeBytes: object.size,
+			limitBytes: MAX_INLINE_ATTACHMENT_BYTES,
+		}
+	}
+
 	return attachmentBodyFor(attachment.mimetype, new Uint8Array(await object.arrayBuffer()))
+}
+
+/**
+ * Cut text at the character cap without leaving half a surrogate pair, which
+ * would be an invalid string in the JSON an agent receives.
+ */
+function truncateAtSafeBoundary(text: string): string {
+	const cut = text.slice(0, MAX_INLINE_ATTACHMENT_CHARS)
+	const lastCode = cut.charCodeAt(cut.length - 1)
+	const isHighSurrogate = lastCode >= 0xd800 && lastCode <= 0xdbff
+	return isHighSurrogate ? cut.slice(0, -1) : cut
 }
 
 /**

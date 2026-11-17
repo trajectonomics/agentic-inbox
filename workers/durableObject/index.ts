@@ -6,6 +6,7 @@ import { DurableObject } from "cloudflare:workers"
 import type { SQL } from "drizzle-orm"
 import { and, asc, desc, eq, gte, lte, or, sql } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/durable-sqlite"
+import { normalizeIsoDateBound } from "../../shared/dates"
 import { Folders } from "../../shared/folders"
 import * as schema from "../db/schema"
 import type { AttachmentSummary } from "../lib/attachments"
@@ -576,8 +577,10 @@ export class MailboxDO extends DurableObject<Env> {
 			offset: rawOffset = 0,
 		} = options
 
-		const limit = Math.min(Math.max(rawLimit, 1), 100)
-		const offset = Math.max(rawOffset, 0)
+		const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? Math.trunc(rawLimit) : 25, 1), 100)
+		const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0
+		const sinceDate = normalizeIsoDateBound(since, "start")
+		const untilDate = normalizeIsoDateBound(until, "end")
 
 		const conditions: SQL[] = []
 		if (emailId) conditions.push(eq(schema.attachments.email_id, emailId))
@@ -585,10 +588,10 @@ export class MailboxDO extends DurableObject<Env> {
 			conditions.push(sql`LOWER(${schema.attachments.mimetype}) = ${mimetype.trim().toLowerCase()}`)
 		if (sender)
 			conditions.push(sql`LOWER(${schema.emails.sender}) = ${sender.trim().toLowerCase()}`)
-		if (since) conditions.push(gte(schema.emails.date, since))
-		if (until) conditions.push(lte(schema.emails.date, until))
+		if (sinceDate) conditions.push(gte(schema.emails.date, sinceDate))
+		if (untilDate) conditions.push(lte(schema.emails.date, untilDate))
 		if (!includeInline)
-			conditions.push(sql`COALESCE(${schema.attachments.disposition}, '') != 'inline'`)
+			conditions.push(sql`LOWER(COALESCE(${schema.attachments.disposition}, '')) != 'inline'`)
 
 		return this.db
 			.select({

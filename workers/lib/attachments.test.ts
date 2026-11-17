@@ -1,12 +1,29 @@
 import { describe, expect, it } from "bun:test"
+import type { Env } from "../types"
 import {
 	attachmentBodyFor,
 	attachmentObjectKey,
 	attachmentReadErrorMessage,
 	isTextMimeType,
+	MAX_INLINE_ATTACHMENT_BYTES,
 	MAX_INLINE_ATTACHMENT_CHARS,
+	readAttachmentBody,
 	sanitizeAttachmentFilename,
 } from "./attachments"
+
+const record = { id: "a1", email_id: "e1", filename: "note.txt", mimetype: "text/plain", size: 5 }
+
+/** A bucket that answers only the keys it holds and records what was read. */
+function fakeBucket(held: Map<string, Uint8Array>, reads: string[] = []) {
+	return {
+		get: async (key: string) => {
+			reads.push(key)
+			const bytes = held.get(key)
+			if (!bytes) return null
+			return { size: bytes.byteLength, arrayBuffer: async () => bytes.slice().buffer }
+		},
+	} as unknown as Env["BUCKET"]
+}
 
 const bytesOf = (text: string) => new TextEncoder().encode(text)
 
@@ -96,5 +113,60 @@ describe("attachment read errors", () => {
 		expect(attachmentReadErrorMessage("attachment_not_readable")).toBe(
 			"Only text attachments can be read this way",
 		)
+	})
+})
+
+describe("reading an attachment from R2", () => {
+	it("reads the object at the key the store wrote", async () => {
+		const reads: string[] = []
+		const bucket = fakeBucket(new Map([["attachments/e1/a1/note.txt", bytesOf("hello")]]), reads)
+		expect(await readAttachmentBody(bucket, record)).toEqual({
+			kind: "text",
+			content: "hello",
+			truncated: false,
+		})
+		expect(reads).toEqual(["attachments/e1/a1/note.txt"])
+	})
+
+	it("returns null when the row has no object behind it", async () => {
+		expect(await readAttachmentBody(fakeBucket(new Map()), record)).toBeNull()
+	})
+
+	it("refuses an oversized object from its size, without reading it", async () => {
+		let read = false
+		const bucket = {
+			get: async () => ({
+				size: MAX_INLINE_ATTACHMENT_BYTES + 1,
+				arrayBuffer: async () => {
+					read = true
+					return new ArrayBuffer(0)
+				},
+			}),
+		} as unknown as Env["BUCKET"]
+
+		expect(await readAttachmentBody(bucket, record)).toEqual({
+			kind: "too_large",
+			sizeBytes: MAX_INLINE_ATTACHMENT_BYTES + 1,
+			limitBytes: MAX_INLINE_ATTACHMENT_BYTES,
+		})
+		expect(read).toBe(false)
+	})
+})
+
+describe("text attachments with MIME parameters", () => {
+	it("reads a MIME type that carries a charset as text", () => {
+		expect(isTextMimeType("application/json; charset=utf-8")).toBe(true)
+		expect(attachmentBodyFor("text/plain; charset=utf-8", bytesOf("ok")).kind).toBe("text")
+	})
+
+	it("never cuts a surrogate pair in half at the cap", () => {
+		const body = attachmentBodyFor(
+			"text/plain",
+			bytesOf(`${"x".repeat(MAX_INLINE_ATTACHMENT_CHARS - 1)}😀`),
+		)
+		if (body.kind !== "text") throw new Error("expected text")
+		expect(body.truncated).toBe(true)
+		expect(body.content.length).toBe(MAX_INLINE_ATTACHMENT_CHARS - 1)
+		expect(body.content.endsWith("x")).toBe(true)
 	})
 })

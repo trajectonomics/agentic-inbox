@@ -23,6 +23,7 @@ import {
 	type AttachmentRecord,
 	type AttachmentSummary,
 	attachmentReadErrorMessage,
+	isTextMimeType,
 	readAttachmentBody,
 } from "./attachments"
 import {
@@ -172,6 +173,14 @@ export async function toolGetAttachment(
 		}
 	}
 
+	// A chat model gets nothing from binary bytes, so refuse before reading them.
+	if (mode === "text" && !isTextMimeType(attachment.mimetype)) {
+		return {
+			error: "attachment_not_readable",
+			message: attachmentReadErrorMessage("attachment_not_readable"),
+		}
+	}
+
 	const body = await readAttachmentBody(env.BUCKET, attachment)
 	if (!body) {
 		return {
@@ -186,13 +195,6 @@ export async function toolGetAttachment(
 			message: `${attachmentReadErrorMessage("attachment_too_large")}: ${body.sizeBytes} bytes, limit ${body.limitBytes} bytes`,
 			sizeBytes: body.sizeBytes,
 			limitBytes: body.limitBytes,
-		}
-	}
-
-	if (body.kind === "base64" && mode === "text") {
-		return {
-			error: "attachment_not_readable",
-			message: attachmentReadErrorMessage("attachment_not_readable"),
 		}
 	}
 
