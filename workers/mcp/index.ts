@@ -10,12 +10,15 @@ import {
 	Folders,
 	MOVE_FOLDER_TOOL_DESCRIPTION,
 } from "../../shared/folders"
+import { ListAttachmentsFiltersSchema } from "../lib/schemas"
 import {
 	toolDeleteEmail,
 	toolDraftEmail,
 	toolDraftReply,
+	toolGetAttachment,
 	toolGetEmail,
 	toolGetThread,
+	toolListAttachments,
 	toolListEmails,
 	toolListMailboxes,
 	toolMarkEmailRead,
@@ -162,6 +165,36 @@ export class EmailMCP extends McpAgent<Env> {
 				if (denied) return denied
 				const result = await toolSearchEmails(env, mailboxId, { query, folder })
 				return mcpText(result)
+			},
+		)
+
+		// ── list_attachments ───────────────────────────────────────
+		this.server.tool(
+			"list_attachments",
+			"List the files attached to mail in a mailbox, newest mail first, with the subject, sender and date of the email each file arrived on. Filters narrow by email, MIME type, sender or a date window; inline parts are left out unless asked for.",
+			{
+				mailboxId: z.string().describe("The mailbox email address"),
+				...ListAttachmentsFiltersSchema.shape,
+			},
+			async ({ mailboxId, ...params }) => {
+				const denied = await verifyMailbox(mailboxId)
+				if (denied) return denied
+				return mcpText(await toolListAttachments(env, mailboxId, params))
+			},
+		)
+
+		// ── get_attachment ─────────────────────────────────────────
+		this.server.tool(
+			"get_attachment",
+			"Read one attached file. Text files come back as text; other files come back base64-encoded, up to 5 MB, so the client can write them to disk. Find the attachment id with list_attachments or get_email.",
+			{
+				mailboxId: z.string().describe("The mailbox email address"),
+				attachmentId: z.string().describe("The attachment id from list_attachments or get_email"),
+			},
+			async ({ mailboxId, attachmentId }) => {
+				const denied = await verifyMailbox(mailboxId)
+				if (denied) return denied
+				return mcpResult(await toolGetAttachment(env, mailboxId, attachmentId))
 			},
 		)
 

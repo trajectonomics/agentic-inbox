@@ -87,3 +87,25 @@ export const SendEmailResponseSchema = z.object({
 	id: z.string(),
 	status: z.string(),
 })
+
+/**
+ * The filters `list_attachments` accepts, validated before they reach the
+ * mailbox Durable Object. `limit` and `offset` are integers, because SQLite
+ * rejects a fractional LIMIT.
+ */
+export const ListAttachmentsFiltersSchema = z.object({
+	emailId: z.string().min(1).optional().describe("Only files on this email id"),
+	mimetype: z.string().min(1).optional().describe("Only this MIME type, e.g. application/pdf"),
+	sender: z.string().min(1).optional().describe("Only files from this sender address"),
+	since: z.string().min(1).optional().describe("Only mail dated on or after this date (ISO 8601)"),
+	until: z.string().min(1).optional().describe("Only mail dated on or before this date (ISO 8601)"),
+	includeInline: z.boolean().optional().describe("Include inline parts such as signature logos"),
+	limit: z
+		.number()
+		.int()
+		.min(1)
+		.max(100)
+		.optional()
+		.describe("Maximum files to return, 1 to 100; default 25"),
+	offset: z.number().int().min(0).optional().describe("Files to skip, for pagination"),
+})

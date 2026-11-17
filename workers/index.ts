@@ -8,7 +8,12 @@ import PostalMime from "postal-mime"
 import { z } from "zod"
 import { Folders } from "../shared/folders"
 import { sendEmail } from "./email-sender"
-import { type StoredAttachment, storeAttachments } from "./lib/attachments"
+import {
+	attachmentObjectKey,
+	type StoredAttachment,
+	sanitizeAttachmentFilename,
+	storeAttachments,
+} from "./lib/attachments"
 import {
 	buildThreadingHeaders,
 	generateMessageId,
@@ -320,7 +325,7 @@ app.delete("/api/v1/mailboxes/:mailboxId/emails/:id", async (c: AppContext) => {
 	if (attachments === null) return c.json({ error: "Not found" }, 404)
 	if (attachments.length > 0)
 		await c.env.BUCKET.delete(
-			attachments.map((att: any) => `attachments/${id}/${att.id}/${att.filename}`),
+			attachments.map((att) => attachmentObjectKey(id, att.id, att.filename)),
 		)
 	return c.body(null, 204)
 })
@@ -405,9 +410,10 @@ app.get(
 		const emailId = c.req.param("emailId")!
 		const attachmentId = c.req.param("attachmentId")!
 		const attachment = await c.var.mailboxStub.getAttachment(attachmentId)
-		if (!attachment) return c.json({ error: "Attachment not found" }, 404)
+		if (!attachment || attachment.email_id !== emailId)
+			return c.json({ error: "Attachment not found" }, 404)
 		const obj = await c.env.BUCKET.get(
-			`attachments/${emailId}/${attachmentId}/${attachment.filename}`,
+			attachmentObjectKey(attachment.email_id, attachmentId, attachment.filename),
 		)
 		if (!obj) return c.json({ error: "Attachment file not found" }, 404)
 		const headers = new Headers()
@@ -491,8 +497,8 @@ async function receiveEmail(
 	if (parsedEmail.attachments) {
 		for (const att of parsedEmail.attachments) {
 			const attId = crypto.randomUUID()
-			const filename = (att.filename || "untitled").replace(/[/\\:*?"<>|\x00-\x1f]/g, "_")
-			await env.BUCKET.put(`attachments/${messageId}/${attId}/${filename}`, att.content)
+			const filename = sanitizeAttachmentFilename(att.filename)
+			await env.BUCKET.put(attachmentObjectKey(messageId, attId, filename), att.content)
 			attachmentData.push({
 				id: attId,
 				email_id: messageId,

@@ -13,13 +13,15 @@ import {
 } from "../../shared/folders"
 import { isPromptInjection, verifyDraft } from "../lib/ai"
 import { getMailboxStub, stripHtmlToText, textToHtml } from "../lib/email-helpers"
-import type { EmailFull, EmailMetadata } from "../lib/schemas"
+import { type EmailFull, type EmailMetadata, ListAttachmentsFiltersSchema } from "../lib/schemas"
 import {
 	toolDiscardDraft,
 	toolDraftEmail,
 	toolDraftReply,
+	toolGetAttachment,
 	toolGetEmail,
 	toolGetThread,
+	toolListAttachments,
 	toolListEmails,
 	toolMarkEmailRead,
 	toolMoveEmail,
@@ -151,6 +153,26 @@ function createEmailTools(env: Env, mailboxId: string) {
 			}),
 			execute: async ({ query, folder }): Promise<unknown> => {
 				return toolSearchEmails(env, mailboxId, { query, folder })
+			},
+		}),
+
+		list_attachments: defineTool({
+			description:
+				"List the files attached to mail in this mailbox, newest mail first. Returns each file's id, filename, MIME type, size and the email it arrived on, so you can narrow by email, MIME type, sender or a date window.",
+			parameters: ListAttachmentsFiltersSchema,
+			execute: async (params): Promise<unknown> => {
+				return toolListAttachments(env, mailboxId, params)
+			},
+		}),
+
+		get_attachment: defineTool({
+			description:
+				"Read one attached text file (CSV, JSON, plain text, markdown). Binary files such as PDFs and images cannot be read in chat: list them with list_attachments and hand them to the operator, or to an MCP client that can write the file.",
+			parameters: z.object({
+				attachmentId: z.string().describe("The attachment id from list_attachments or get_email"),
+			}),
+			execute: async ({ attachmentId }): Promise<unknown> => {
+				return toolGetAttachment(env, mailboxId, attachmentId, "text")
 			},
 		}),
 

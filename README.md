@@ -39,7 +39,8 @@ https://github.com/cloudflare/agentic-inbox/issues/4#issuecomment-4269118513
 
 - **Full email client** — Send and receive emails via Cloudflare Email Routing with a rich text composer, reply/forward threading, folder organization, search, and attachments
 - **Per-mailbox isolation** — Each mailbox runs in its own Durable Object with SQLite storage and R2 for attachments
-- **Built-in AI agent** — Side panel with 9 email tools for reading, searching, drafting, and sending
+- **Built-in AI agent** — Side panel with 11 email tools for reading, searching, opening attachments, drafting, and sending
+- **The MCP server hands over files too** — `list_attachments` and `get_attachment` let an external agent find and read the document a bank or employer emailed, not just the message that mentions it (text as text, binary as base64 up to 5 MB)
 - **Auto-draft on new email** — Agent automatically reads inbound emails and generates draft replies, always requiring explicit confirmation before sending
 - **Configurable and persistent** — Custom system prompts per mailbox, persistent chat history, streaming markdown responses, and tool call visibility
 
@@ -88,7 +89,7 @@ Any user who passes the shared Cloudflare Access policy can access all mailboxes
 └──────┬───────┘     │  /agents/* ──────┼────>┌─────────────────┐
        │             │                  │     │  EmailAgent DO  │
        │ WebSocket   │                  │     │  (AIChatAgent)  │
-       └─────────────┤                  │     │  9 email tools  │
+       └─────────────┤                  │     │  11 email tools │
                      │                  │────>│  Workers AI     │
                      └──────────────────┘     └─────────────────┘
 ```
