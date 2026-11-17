@@ -214,6 +214,7 @@ export async function readAttachmentBody(
 
 	// Refuse an oversized file from its metadata, before buffering it.
 	if (object.size > MAX_INLINE_ATTACHMENT_BYTES) {
+		await object.body?.cancel?.()
 		return {
 			kind: "too_large",
 			sizeBytes: object.size,

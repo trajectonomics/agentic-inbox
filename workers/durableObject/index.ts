@@ -584,8 +584,12 @@ export class MailboxDO extends DurableObject<Env> {
 
 		const conditions: SQL[] = []
 		if (emailId) conditions.push(eq(schema.attachments.email_id, emailId))
-		if (mimetype)
-			conditions.push(sql`LOWER(${schema.attachments.mimetype}) = ${mimetype.trim().toLowerCase()}`)
+		if (mimetype) {
+			const wanted = mimetype.trim().toLowerCase()
+			conditions.push(
+				sql`(LOWER(${schema.attachments.mimetype}) = ${wanted} OR LOWER(${schema.attachments.mimetype}) LIKE ${`${wanted};%`})`,
+			)
+		}
 		if (sender)
 			conditions.push(sql`LOWER(${schema.emails.sender}) = ${sender.trim().toLowerCase()}`)
 		if (sinceDate) conditions.push(gte(schema.emails.date, sinceDate))

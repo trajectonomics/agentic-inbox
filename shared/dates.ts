@@ -118,7 +118,8 @@ export function normalizeIsoDateBound(
 	value: string | undefined,
 	edge: "start" | "end",
 ): string | undefined {
-	if (!value) return undefined
-	if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-	return edge === "start" ? `${value}T00:00:00.000Z` : `${value}T23:59:59.999Z`
+	const trimmed = value?.trim()
+	if (!trimmed) return undefined
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
+	return edge === "start" ? `${trimmed}T00:00:00.000Z` : `${trimmed}T23:59:59.999Z`
 }
