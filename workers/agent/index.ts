@@ -18,8 +18,10 @@ import {
 	toolDiscardDraft,
 	toolDraftEmail,
 	toolDraftReply,
+	toolGetAttachment,
 	toolGetEmail,
 	toolGetThread,
+	toolListAttachments,
 	toolListEmails,
 	toolMarkEmailRead,
 	toolMoveEmail,
@@ -151,6 +153,38 @@ function createEmailTools(env: Env, mailboxId: string) {
 			}),
 			execute: async ({ query, folder }): Promise<unknown> => {
 				return toolSearchEmails(env, mailboxId, { query, folder })
+			},
+		}),
+
+		list_attachments: defineTool({
+			description:
+				"List the files attached to mail in this mailbox, newest mail first. Returns each file's id, filename, MIME type, size and the email it arrived on, so you can narrow by email, MIME type, sender or a date window.",
+			parameters: z.object({
+				emailId: z.string().optional().describe("Only files on this email id"),
+				mimetype: z.string().optional().describe("Only this MIME type, e.g. application/pdf"),
+				sender: z.string().optional().describe("Only files from this sender address"),
+				since: z.string().optional().describe("Only mail dated on or after this ISO 8601 date"),
+				until: z.string().optional().describe("Only mail dated on or before this ISO 8601 date"),
+				includeInline: z
+					.boolean()
+					.optional()
+					.describe("Include inline parts such as signature logos"),
+				limit: z.number().optional().describe("Maximum files to return, 1 to 100; default 25"),
+				offset: z.number().optional().describe("Files to skip, for pagination"),
+			}),
+			execute: async (params): Promise<unknown> => {
+				return toolListAttachments(env, mailboxId, params)
+			},
+		}),
+
+		get_attachment: defineTool({
+			description:
+				"Read one attached text file (CSV, JSON, plain text, markdown). Binary files such as PDFs and images cannot be read in chat: list them with list_attachments and hand them to the operator, or to an MCP client that can write the file.",
+			parameters: z.object({
+				attachmentId: z.string().describe("The attachment id from list_attachments or get_email"),
+			}),
+			execute: async ({ attachmentId }): Promise<unknown> => {
+				return toolGetAttachment(env, mailboxId, attachmentId, "text")
 			},
 		}),
 

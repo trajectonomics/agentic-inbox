@@ -19,6 +19,13 @@ import { sendEmail } from "../email-sender"
 import type { Env } from "../types"
 import { verifyDraft } from "./ai"
 import {
+	type AttachmentReadError,
+	type AttachmentRecord,
+	type AttachmentSummary,
+	attachmentReadErrorMessage,
+	readAttachmentBody,
+} from "./attachments"
+import {
 	buildQuotedReplyBlock,
 	buildReferencesChain,
 	buildThreadingHeaders,
@@ -91,6 +98,110 @@ export async function toolSearchEmails(
 		query: params.query,
 		folder: params.folder,
 	})
+}
+
+// ── list_attachments ───────────────────────────────────────────────
+
+/** The filters `list_attachments` accepts; every field is optional. */
+export interface ListAttachmentsInput {
+	emailId?: string
+	mimetype?: string
+	sender?: string
+	since?: string
+	until?: string
+	includeInline?: boolean
+	limit?: number
+	offset?: number
+}
+
+/**
+ * List the files attached to a mailbox's mail, newest first, each with the
+ * subject, sender and date of the email it arrived on.
+ */
+export async function toolListAttachments(
+	env: Env,
+	mailboxId: string,
+	params: ListAttachmentsInput = {},
+): Promise<{ attachments: AttachmentSummary[] }> {
+	const stub = getMailboxStub(env, mailboxId)
+	const attachments = await stub.listAttachments(params)
+	return { attachments }
+}
+
+// ── get_attachment ─────────────────────────────────────────────────
+
+/** The body of one attachment, or the one code that says why it is absent. */
+export type AttachmentToolResult =
+	| {
+			attachment: AttachmentRecord
+			encoding: "text" | "base64"
+			content: string
+			truncated?: boolean
+	  }
+	| {
+			error: AttachmentReadError
+			message: string
+			sizeBytes?: number
+			limitBytes?: number
+	  }
+
+/**
+ * How much of an attachment the caller can use. `bytes` returns binary as
+ * base64 for a client that can write a file; `text` refuses binary, which is
+ * what a chat model needs, because PDF bytes in a prompt help nobody.
+ */
+export type AttachmentReadMode = "bytes" | "text"
+
+/**
+ * Read one attachment's bytes for the caller's agent. Text stays text;
+ * anything else is base64 in `bytes` mode and refused in `text` mode. A file
+ * over the inline limit is refused with its size, never silently shortened.
+ */
+export async function toolGetAttachment(
+	env: Env,
+	mailboxId: string,
+	attachmentId: string,
+	mode: AttachmentReadMode = "bytes",
+): Promise<AttachmentToolResult> {
+	const stub = getMailboxStub(env, mailboxId)
+	const attachment = await stub.getAttachment(attachmentId)
+	if (!attachment) {
+		return {
+			error: "attachment_not_found",
+			message: attachmentReadErrorMessage("attachment_not_found"),
+		}
+	}
+
+	const body = await readAttachmentBody(env.BUCKET, attachment)
+	if (!body) {
+		return {
+			error: "attachment_file_missing",
+			message: attachmentReadErrorMessage("attachment_file_missing"),
+		}
+	}
+
+	if (body.kind === "too_large") {
+		return {
+			error: "attachment_too_large",
+			message: `${attachmentReadErrorMessage("attachment_too_large")}: ${body.sizeBytes} bytes, limit ${body.limitBytes} bytes`,
+			sizeBytes: body.sizeBytes,
+			limitBytes: body.limitBytes,
+		}
+	}
+
+	if (body.kind === "base64" && mode === "text") {
+		return {
+			error: "attachment_not_readable",
+			message: attachmentReadErrorMessage("attachment_not_readable"),
+		}
+	}
+
+	return {
+		attachment,
+		encoding: body.kind === "text" ? "text" : "base64",
+		content: body.content,
+		...(body.kind === "text" && body.truncated ? { truncated: true } : {}),
+	}
 }
 
 // ── draft_reply ────────────────────────────────────────────────────

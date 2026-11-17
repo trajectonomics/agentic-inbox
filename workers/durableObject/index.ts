@@ -4,10 +4,11 @@
 
 import { DurableObject } from "cloudflare:workers"
 import type { SQL } from "drizzle-orm"
-import { and, asc, desc, eq, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gte, lte, or, sql } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/durable-sqlite"
 import { Folders } from "../../shared/folders"
 import * as schema from "../db/schema"
+import type { AttachmentSummary } from "../lib/attachments"
 import type { Env } from "../types"
 import { applyMigrations, mailboxMigrations } from "./migrations"
 
@@ -69,6 +70,17 @@ interface GetEmailsOptions {
 	limit?: number
 	sortColumn?: SortColumn
 	sortDirection?: "ASC" | "DESC"
+}
+
+interface ListAttachmentsOptions {
+	emailId?: string
+	mimetype?: string
+	sender?: string
+	since?: string
+	until?: string
+	includeInline?: boolean
+	limit?: number
+	offset?: number
 }
 
 interface EmailData {
@@ -542,6 +554,62 @@ export class MailboxDO extends DurableObject<Env> {
 		return (
 			this.db.select().from(schema.attachments).where(eq(schema.attachments.id, id)).get() ?? null
 		)
+	}
+
+	/**
+	 * List the attachments in this mailbox with the email each one arrived on,
+	 * newest mail first. The filters are the questions an agent asks first: the
+	 * files on one email, one MIME type, one sender, or a date window.
+	 *
+	 * Inline parts are left out unless `includeInline` is set, because a
+	 * signature logo is not a document the caller asked for.
+	 */
+	async listAttachments(options: ListAttachmentsOptions = {}): Promise<AttachmentSummary[]> {
+		const {
+			emailId,
+			mimetype,
+			sender,
+			since,
+			until,
+			includeInline = false,
+			limit: rawLimit = 25,
+			offset: rawOffset = 0,
+		} = options
+
+		const limit = Math.min(Math.max(rawLimit, 1), 100)
+		const offset = Math.max(rawOffset, 0)
+
+		const conditions: SQL[] = []
+		if (emailId) conditions.push(eq(schema.attachments.email_id, emailId))
+		if (mimetype)
+			conditions.push(sql`LOWER(${schema.attachments.mimetype}) = ${mimetype.trim().toLowerCase()}`)
+		if (sender)
+			conditions.push(sql`LOWER(${schema.emails.sender}) = ${sender.trim().toLowerCase()}`)
+		if (since) conditions.push(gte(schema.emails.date, since))
+		if (until) conditions.push(lte(schema.emails.date, until))
+		if (!includeInline)
+			conditions.push(sql`COALESCE(${schema.attachments.disposition}, '') != 'inline'`)
+
+		return this.db
+			.select({
+				id: schema.attachments.id,
+				email_id: schema.attachments.email_id,
+				filename: schema.attachments.filename,
+				mimetype: schema.attachments.mimetype,
+				size: schema.attachments.size,
+				content_id: schema.attachments.content_id,
+				disposition: schema.attachments.disposition,
+				email_subject: schema.emails.subject,
+				email_sender: schema.emails.sender,
+				email_date: schema.emails.date,
+			})
+			.from(schema.attachments)
+			.innerJoin(schema.emails, eq(schema.emails.id, schema.attachments.email_id))
+			.where(and(...conditions))
+			.orderBy(desc(schema.emails.date), asc(schema.attachments.filename))
+			.limit(limit)
+			.offset(offset)
+			.all()
 	}
 
 	// ── Folders (Drizzle) ──────────────────────────────────────────
