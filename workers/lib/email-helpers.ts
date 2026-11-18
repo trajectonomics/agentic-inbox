@@ -42,6 +42,15 @@ export async function listMailboxes(bucket: R2Bucket): Promise<{ id: string; ema
 // ── Sender Validation ──────────────────────────────────────────────
 
 /**
+ * Lowercase and comma-join a recipient field, or null when it was not given.
+ * The one rule for every recipient field, in the request and in the stored copy.
+ */
+export function joinRecipients(value: string | string[] | undefined): string | null {
+	if (!value) return null
+	return (Array.isArray(value) ? value.join(", ") : value).toLowerCase()
+}
+
+/**
  * Normalise to/from addresses and validate the sender matches the mailbox.
  * Returns the normalised values or throws with a user-facing message.
  */
@@ -50,7 +59,7 @@ export function validateSender(
 	from: string | { email: string; name: string },
 	mailboxId: string,
 ): { toStr: string; fromEmail: string; fromDomain: string } {
-	const toStr = (Array.isArray(to) ? to.join(", ") : to).toLowerCase()
+	const toStr = joinRecipients(to) ?? ""
 	const fromEmail = (typeof from === "string" ? from : from.email).toLowerCase()
 
 	if (fromEmail !== mailboxId.toLowerCase()) {

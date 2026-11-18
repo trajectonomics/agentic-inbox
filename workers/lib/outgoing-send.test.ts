@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test"
 import { Folders } from "../../shared/folders"
 import type { Env } from "../types"
-import type { OutgoingRecorder, OutgoingThreading, SentCopy } from "./outgoing-send"
-import { sendAndRecord } from "./outgoing-send"
+import { type OutgoingRecorder, type OutgoingThreading, sendAndRecord } from "./outgoing-send"
+import type { OutgoingMessage } from "./schemas"
 
 const MAILBOX = "me@example.com"
 
@@ -43,19 +43,19 @@ function fakeBucket() {
 
 /** A mailbox recorder that records every call, and can fail while recording. */
 function fakeRecorder(options: { rateLimit?: string; failsToRecord?: boolean } = {}) {
-	const copies: { folder: string; copy: SentCopy; attachments: unknown[] }[] = []
+	const recorded: { folder: string; message: OutgoingMessage; attachments: unknown[] }[] = []
 	const marks: string[] = []
 	const recorder: OutgoingRecorder = {
 		checkSendRateLimit: async () => options.rateLimit ?? null,
-		createEmail: async (folder, copy, attachments) => {
+		createEmail: async (folder, message, attachments) => {
 			if (options.failsToRecord) throw new Error("storage unavailable")
-			copies.push({ folder, copy, attachments })
+			recorded.push({ folder, message, attachments })
 		},
 		markThreadRead: async (threadId) => {
 			marks.push(threadId)
 		},
 	}
-	return { recorder, copies, marks }
+	return { recorder, recorded, marks }
 }
 
 /** One send over fresh fakes, so each case reads as its outcome. */
@@ -72,7 +72,7 @@ function harness(
 		? refusingBinding(options.refuse)
 		: acceptingBinding(options.messageId)
 	const bucket = fakeBucket()
-	const { recorder, copies, marks } = fakeRecorder(options)
+	const { recorder, recorded, marks } = fakeRecorder(options)
 	const body = {
 		to: "them@example.org",
 		from: options.from ?? MAILBOX,
@@ -89,7 +89,7 @@ function harness(
 	}
 	return {
 		keys: bucket.keys,
-		copies,
+		recorded,
 		marks,
 		sends: mail.sends,
 		result: (threading: OutgoingThreading = {}) =>
@@ -101,27 +101,27 @@ function harness(
 	}
 }
 
-/** The stored `message-id` header entry of a recorded copy. */
-function storedMessageIdHeader(copy: SentCopy): string | undefined {
-	const headers: { key: string; value: string }[] = JSON.parse(copy.raw_headers)
+/** The stored `message-id` header entry of a recorded Message. */
+function storedMessageIdHeader(message: OutgoingMessage): string | undefined {
+	const headers: { key: string; value: string }[] = JSON.parse(message.raw_headers)
 	return headers.find((header) => header.key === "message-id")?.value
 }
 
 describe("an outgoing send", () => {
-	it("records the copy after the binding accepts, with the id the binding sent", async () => {
+	it("records the Message after the binding accepts, with the id the binding sent", async () => {
 		const h = harness({ messageId: "wire-id@example.com" })
 		const result = await h.result()
-		const copy = h.copies[0].copy
+		const message = h.recorded[0].message
 
 		expect(result.status).toBe("sent")
 		expect(h.sends()).toBe(1)
-		expect(h.copies).toHaveLength(1)
-		expect(h.copies[0].folder).toBe(Folders.SENT)
-		expect(copy.message_id).toBe("wire-id@example.com")
-		expect(storedMessageIdHeader(copy)).toBe("<wire-id@example.com>")
-		expect(copy.thread_id).toBe(copy.id)
-		expect(h.copies[0].attachments).toHaveLength(1)
-		expect(h.keys[0].startsWith(`attachments/${copy.id}/`)).toBe(true)
+		expect(h.recorded).toHaveLength(1)
+		expect(h.recorded[0].folder).toBe(Folders.SENT)
+		expect(message.message_id).toBe("wire-id@example.com")
+		expect(storedMessageIdHeader(message)).toBe("<wire-id@example.com>")
+		expect(message.thread_id).toBe(message.id)
+		expect(h.recorded[0].attachments).toHaveLength(1)
+		expect(h.keys[0].startsWith(`attachments/${message.id}/`)).toBe(true)
 	})
 
 	it("records nothing and reports the refusal when the binding rejects the message", async () => {
@@ -131,7 +131,7 @@ describe("an outgoing send", () => {
 			status: "not_sent",
 			error: "Failed to send email: mailbox suspended",
 		})
-		expect(h.copies).toHaveLength(0)
+		expect(h.recorded).toHaveLength(0)
 		expect(h.keys).toHaveLength(0)
 	})
 
@@ -154,8 +154,8 @@ describe("an outgoing send", () => {
 		})
 
 		expect(h.marks).toEqual(["thread-1"])
-		expect(h.copies[0].copy.in_reply_to).toBe("original-id")
-		expect(h.copies[0].copy.email_references).toBe(JSON.stringify(["original-id"]))
+		expect(h.recorded[0].message.in_reply_to).toBe("original-id")
+		expect(h.recorded[0].message.email_references).toBe(JSON.stringify(["original-id"]))
 	})
 
 	it("sends nothing and records nothing when the mailbox is over its rate limit", async () => {
@@ -166,7 +166,7 @@ describe("an outgoing send", () => {
 			error: "Rate limit exceeded: max 20 emails per hour per mailbox",
 		})
 		expect(h.sends()).toBe(0)
-		expect(h.copies).toHaveLength(0)
+		expect(h.recorded).toHaveLength(0)
 		expect(h.keys).toHaveLength(0)
 	})
 
@@ -175,7 +175,7 @@ describe("an outgoing send", () => {
 
 		await h.result()
 
-		expect(h.copies[0].copy.message_id).toBe("wire-id@example.com")
+		expect(h.recorded[0].message.message_id).toBe("wire-id@example.com")
 	})
 
 	it("falls back to the generated id when the binding reports none", async () => {
@@ -183,17 +183,17 @@ describe("an outgoing send", () => {
 
 		await h.result()
 
-		expect(h.copies[0].copy.message_id).toBe(`${h.copies[0].copy.id}@example.com`)
+		expect(h.recorded[0].message.message_id).toBe(`${h.recorded[0].message.id}@example.com`)
 	})
 
-	it("still reports sent when the copy cannot be recorded after an accepted send", async () => {
+	it("still reports sent when the Message cannot be recorded after an accepted send", async () => {
 		const h = harness({ messageId: "wire-id@example.com", failsToRecord: true })
 
 		const result = await h.result()
 
 		expect(result.status).toBe("sent")
 		expect(h.sends()).toBe(1)
-		expect(h.copies).toHaveLength(0)
+		expect(h.recorded).toHaveLength(0)
 	})
 
 	it("refuses a sender that does not match the mailbox, sending and recording nothing", async () => {
@@ -204,6 +204,6 @@ describe("an outgoing send", () => {
 			error: "From address must match the mailbox email address",
 		})
 		expect(h.sends()).toBe(0)
-		expect(h.copies).toHaveLength(0)
+		expect(h.recorded).toHaveLength(0)
 	})
 })

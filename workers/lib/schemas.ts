@@ -86,6 +86,29 @@ export const SendEmailRequestSchema = z
 /** An outgoing message as a browser send route receives it, after validation. */
 export type SendEmailRequest = z.infer<typeof SendEmailRequestSchema>
 
+/**
+ * The Message an accepted send records in the `sent` folder, validated as it
+ * crosses from the Worker into the mailbox Durable Object.
+ */
+export const OutgoingMessageSchema = z.object({
+	id: z.string(),
+	subject: z.string(),
+	sender: z.string(),
+	recipient: z.string(),
+	cc: z.string().nullable(),
+	bcc: z.string().nullable(),
+	date: z.string(),
+	body: z.string(),
+	in_reply_to: z.string().nullable(),
+	email_references: z.string().nullable(),
+	thread_id: z.string(),
+	message_id: z.string(),
+	raw_headers: z.string(),
+})
+
+/** The stored shape of an accepted outgoing Message. */
+export type OutgoingMessage = z.infer<typeof OutgoingMessageSchema>
+
 export const SendEmailResponseSchema = z.object({
 	id: z.string(),
 	status: z.string(),

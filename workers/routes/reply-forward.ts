@@ -9,7 +9,7 @@
 import type { Context } from "hono"
 import { buildReferencesChain, resolveOriginalEmail } from "../lib/email-helpers"
 import type { MailboxContext } from "../lib/mailbox"
-import { type OutgoingRecorder, sendAndRecord } from "../lib/outgoing-send"
+import { sendAndRecord } from "../lib/outgoing-send"
 import { type EmailFull, SendEmailRequestSchema } from "../lib/schemas"
 import { respondToSendResult } from "./send-response"
 
@@ -35,7 +35,7 @@ export async function handleReplyEmail(c: AppContext) {
 	const originalEmail = await resolveOriginalEmail(stub, rawOriginal)
 	const { originalMsgId, references, threadId } = buildReferencesChain(originalEmail)
 
-	const result = await sendAndRecord(c.env, stub as unknown as OutgoingRecorder, {
+	const result = await sendAndRecord(c.env, stub, {
 		mailboxId,
 		body,
 		threading: { inReplyTo: originalMsgId, references, threadId, markThreadRead: true },
@@ -59,7 +59,7 @@ export async function handleForwardEmail(c: AppContext) {
 		return c.json({ error: "Original email not found" }, 404)
 	}
 
-	const result = await sendAndRecord(c.env, c.var.mailboxStub as unknown as OutgoingRecorder, {
+	const result = await sendAndRecord(c.env, c.var.mailboxStub, {
 		mailboxId,
 		body,
 		threading: {},

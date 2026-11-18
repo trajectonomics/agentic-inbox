@@ -15,7 +15,7 @@ import {
 import { deleteEmailAndFiles, deleteFolderAndFiles, deleteMailboxAndFiles } from "./lib/delete"
 import { listMailboxes, normalizeMessageId } from "./lib/email-helpers"
 import { type MailboxContext, normalizeMailboxId, requireMailbox } from "./lib/mailbox"
-import { type OutgoingRecorder, sendAndRecord } from "./lib/outgoing-send"
+import { sendAndRecord } from "./lib/outgoing-send"
 import { SendEmailRequestSchema } from "./lib/schemas"
 import { handleForwardEmail, handleReplyEmail } from "./routes/reply-forward"
 import { respondToSendResult } from "./routes/send-response"
@@ -200,7 +200,7 @@ app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	const mailboxId = c.req.param("mailboxId")!
 	const body = SendEmailRequestSchema.parse(await c.req.json())
 
-	const result = await sendAndRecord(c.env, c.var.mailboxStub as unknown as OutgoingRecorder, {
+	const result = await sendAndRecord(c.env, c.var.mailboxStub, {
 		mailboxId,
 		body,
 		// New mail starts its own thread unless the caller threads it onto one.
