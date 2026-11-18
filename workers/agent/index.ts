@@ -285,10 +285,11 @@ export class EmailAgent extends AIChatAgent<any> {
 		const url = new URL(request.url)
 		if (url.pathname === "/deleteMailboxState" && request.method === "POST") {
 			// Clear the chat the way the library's own clear path does: the
-			// persisted rows and the in-memory messages, not the whole storage,
-			// which would desync a live agent and its open stream.
+			// persisted rows, the resumable stream data and the in-memory
+			// messages, not the whole storage, which would desync a live agent.
 			try {
 				this.sql`delete from cf_ai_chat_agent_messages`
+				this._resumableStream.clearAll()
 				this.messages = []
 				return new Response(JSON.stringify({ status: "cleared" }), {
 					headers: { "Content-Type": "application/json" },

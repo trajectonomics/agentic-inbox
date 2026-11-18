@@ -25,13 +25,18 @@ import {
 import { getMailboxStub } from "./email-helpers"
 import { AttachmentKeyRowsSchema, FolderDeletionRowsSchema } from "./schemas"
 
+/** What removing the Attachment objects of a delete did. One code per rule. */
+type AttachmentRemoval =
+	| { status: "removed"; deletedCount: number }
+	| { status: "attachment_delete_failed"; remainingKeysCount: number; error: string }
+
 /** What deleting a Message did. One code per rule. */
 export type DeleteEmailResult =
 	| { status: "deleted"; emailId: string; attachmentsDeletedCount: number }
 	| {
 			status: "attachment_delete_failed"
 			emailId: string
-			remainingKeys: number
+			remainingKeysCount: number
 			error: string
 	  }
 	| { status: "email_not_found" }
@@ -42,7 +47,7 @@ export type DeleteMailboxResult =
 	| {
 			status: "attachment_delete_failed"
 			mailboxId: string
-			remainingKeys: number
+			remainingKeysCount: number
 			error: string
 	  }
 
@@ -52,11 +57,31 @@ export type DeleteFolderResult =
 	| {
 			status: "attachment_delete_failed"
 			folderId: string
-			remainingKeys: number
+			remainingKeysCount: number
 			error: string
 	  }
 	| { status: "folder_not_found" }
 	| { status: "folder_not_deletable" }
+
+/**
+ * Remove the Attachment objects of the rows a Durable Object returned, in
+ * chunks of 1000, and report the refusal with the one sentence callers show.
+ * Validates the rows at the Worker/Durable Object boundary first.
+ */
+async function removeAttachmentObjects(env: Env, rows: unknown): Promise<AttachmentRemoval> {
+	const parsed = AttachmentKeyRowsSchema.parse(rows)
+	const removed = await deleteAttachmentObjects(env.BUCKET, attachmentObjectKeys(parsed))
+
+	if (removed.remainingKeys.length > 0) {
+		return {
+			status: "attachment_delete_failed",
+			remainingKeysCount: removed.remainingKeys.length,
+			error: attachmentDeleteErrorMessage("attachment_delete_failed"),
+		}
+	}
+
+	return { status: "removed", deletedCount: removed.deletedKeys.length }
+}
 
 /**
  * Delete one Message and its Attachment objects. A Message that is not there
@@ -72,20 +97,12 @@ export async function deleteEmailAndFiles(
 	const listed = await stub.listAttachmentRows(emailId)
 	if (listed === null) return { status: "email_not_found" }
 
-	const rows = AttachmentKeyRowsSchema.parse(listed)
-	const removed = await deleteAttachmentObjects(env.BUCKET, attachmentObjectKeys(rows))
-	if (removed.remainingKeys.length > 0) {
-		return {
-			status: "attachment_delete_failed",
-			emailId,
-			remainingKeys: removed.remainingKeys.length,
-			error: attachmentDeleteErrorMessage("attachment_delete_failed"),
-		}
-	}
+	const removal = await removeAttachmentObjects(env, listed)
+	if (removal.status === "attachment_delete_failed") return { ...removal, emailId }
 
 	await stub.deleteEmailRows(emailId)
 
-	return { status: "deleted", emailId, attachmentsDeletedCount: removed.deletedKeys.length }
+	return { status: "deleted", emailId, attachmentsDeletedCount: removal.deletedCount }
 }
 
 /**
@@ -106,17 +123,9 @@ export async function deleteMailboxAndFiles(
 ): Promise<DeleteMailboxResult> {
 	const stub = getMailboxStub(env, mailboxId)
 	const listed = await stub.listMailboxAttachmentRows()
-	const rows = AttachmentKeyRowsSchema.parse(listed)
 
-	const removed = await deleteAttachmentObjects(env.BUCKET, attachmentObjectKeys(rows))
-	if (removed.remainingKeys.length > 0) {
-		return {
-			status: "attachment_delete_failed",
-			mailboxId,
-			remainingKeys: removed.remainingKeys.length,
-			error: attachmentDeleteErrorMessage("attachment_delete_failed"),
-		}
-	}
+	const removal = await removeAttachmentObjects(env, listed)
+	if (removal.status === "attachment_delete_failed") return { ...removal, mailboxId }
 
 	await stub.deleteMailboxStore()
 
@@ -130,7 +139,7 @@ export async function deleteMailboxAndFiles(
 
 	await env.BUCKET.delete(`mailboxes/${mailboxId}.json`)
 
-	return { status: "deleted", mailboxId, attachmentsDeletedCount: removed.deletedKeys.length }
+	return { status: "deleted", mailboxId, attachmentsDeletedCount: removal.deletedCount }
 }
 
 /**
@@ -151,20 +160,10 @@ export async function deleteFolderAndFiles(
 	const folder = FolderDeletionRowsSchema.parse(listed)
 	if (!folder.isDeletable) return { status: "folder_not_deletable" }
 
-	const removed = await deleteAttachmentObjects(
-		env.BUCKET,
-		attachmentObjectKeys(folder.attachments),
-	)
-	if (removed.remainingKeys.length > 0) {
-		return {
-			status: "attachment_delete_failed",
-			folderId,
-			remainingKeys: removed.remainingKeys.length,
-			error: attachmentDeleteErrorMessage("attachment_delete_failed"),
-		}
-	}
+	const removal = await removeAttachmentObjects(env, folder.attachments)
+	if (removal.status === "attachment_delete_failed") return { ...removal, folderId }
 
 	await stub.deleteFolderRows(folderId)
 
-	return { status: "deleted", folderId, attachmentsDeletedCount: removed.deletedKeys.length }
+	return { status: "deleted", folderId, attachmentsDeletedCount: removal.deletedCount }
 }
