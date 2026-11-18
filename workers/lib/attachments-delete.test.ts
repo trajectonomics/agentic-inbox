@@ -106,7 +106,7 @@ describe("deleting Attachment objects", () => {
 describe("the sentence a failed Attachment delete shows", () => {
 	it("has one sentence for the one code", () => {
 		expect(attachmentDeleteErrorMessage("attachment_delete_failed")).toBe(
-			"The Attachment files could not be removed, so nothing was deleted",
+			"The Attachment files could not all be removed, so the mail was not deleted",
 		)
 	})
 })

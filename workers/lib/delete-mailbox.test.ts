@@ -73,7 +73,7 @@ describe("deleting a Mailbox", () => {
 			status: "chat_clear_failed",
 			mailboxId: "me@example.com",
 			error:
-				"The Mailbox chat could not be cleared (500); its mail is already deleted, so deleting the Mailbox again finishes the job",
+				"The Mailbox chat could not be cleared; its mail is already deleted, so deleting the Mailbox again finishes the job",
 		})
 		expect(order).toEqual([
 			"listMailboxAttachmentRows",

@@ -22,7 +22,7 @@ import {
 	SenderValidationError,
 	validateSender,
 } from "./lib/email-helpers"
-import { type MailboxContext, requireMailbox } from "./lib/mailbox"
+import { type MailboxContext, normalizeMailboxId, requireMailbox } from "./lib/mailbox"
 import { SendEmailRequestSchema } from "./lib/schemas"
 import { handleForwardEmail, handleReplyEmail } from "./routes/reply-forward"
 import type { Env } from "./types"
@@ -161,9 +161,9 @@ app.put("/api/v1/mailboxes/:mailboxId", async (c) => {
 })
 
 app.delete("/api/v1/mailboxes/:mailboxId", async (c) => {
-	// The listing object and the EmailAgent are keyed by the decoded, lowercased
-	// address, so the delete must use the same one.
-	const mailboxId = decodeURIComponent(c.req.param("mailboxId")!).toLowerCase()
+	// The listing object and the EmailAgent are keyed by the normalized address,
+	// so the delete must use the same one. Hono already decoded the path param.
+	const mailboxId = normalizeMailboxId(c.req.param("mailboxId")!)
 	const key = `mailboxes/${mailboxId}.json`
 	if (!(await c.env.BUCKET.head(key))) return c.json({ error: "Not found" }, 404)
 	const result = await deleteMailboxAndFiles(c.env, mailboxId)
@@ -284,7 +284,7 @@ app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 })
 
 app.post("/api/v1/mailboxes/:mailboxId/drafts", async (c: AppContext) => {
-	const mailboxId = c.req.param("mailboxId")!
+	const mailboxId = normalizeMailboxId(c.req.param("mailboxId")!)
 	const { to, cc, bcc, subject, body, in_reply_to, thread_id, draft_id } = DraftBody.parse(
 		await c.req.json(),
 	)
@@ -302,7 +302,7 @@ app.post("/api/v1/mailboxes/:mailboxId/drafts", async (c: AppContext) => {
 		{
 			id: messageId,
 			subject: subject || "",
-			sender: mailboxId.toLowerCase(),
+			sender: mailboxId,
 			recipient: (to || "").toLowerCase(),
 			cc: cc?.toLowerCase() || null,
 			bcc: bcc?.toLowerCase() || null,
@@ -335,7 +335,11 @@ app.put("/api/v1/mailboxes/:mailboxId/emails/:id", async (c: AppContext) => {
 })
 
 app.delete("/api/v1/mailboxes/:mailboxId/emails/:id", async (c: AppContext) => {
-	const result = await deleteEmailAndFiles(c.env, c.req.param("mailboxId")!, c.req.param("id")!)
+	const result = await deleteEmailAndFiles(
+		c.env,
+		normalizeMailboxId(c.req.param("mailboxId")!),
+		c.req.param("id")!,
+	)
 	switch (result.status) {
 		case "email_not_found":
 			return c.json({ error: "Not found" }, 404)
@@ -389,7 +393,11 @@ app.put("/api/v1/mailboxes/:mailboxId/folders/:id", async (c: AppContext) => {
 })
 
 app.delete("/api/v1/mailboxes/:mailboxId/folders/:id", async (c: AppContext) => {
-	const result = await deleteFolderAndFiles(c.env, c.req.param("mailboxId")!, c.req.param("id")!)
+	const result = await deleteFolderAndFiles(
+		c.env,
+		normalizeMailboxId(c.req.param("mailboxId")!),
+		c.req.param("id")!,
+	)
 	switch (result.status) {
 		case "folder_not_found":
 			return c.json({ error: "Folder not found" }, 404)

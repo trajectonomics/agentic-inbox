@@ -141,7 +141,8 @@ export async function deleteMailboxAndFiles(
 		return {
 			status: "chat_clear_failed",
 			mailboxId,
-			error: `The Mailbox chat could not be cleared (${cleared.status}); its mail is already deleted, so deleting the Mailbox again finishes the job`,
+			error:
+				"The Mailbox chat could not be cleared; its mail is already deleted, so deleting the Mailbox again finishes the job",
 		}
 	}
 

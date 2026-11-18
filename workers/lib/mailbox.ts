@@ -18,10 +18,20 @@ export type MailboxContext = {
 	}
 }
 
+/**
+ * The one mailbox-id normalization. Hono has already decoded the path param,
+ * so the canonical id is just the address lowercased. The listing object, the
+ * Durable Object id and every delete use this, so they cannot address
+ * different stores for the same Mailbox.
+ */
+export function normalizeMailboxId(raw: string): string {
+	return raw.toLowerCase()
+}
+
 export const requireMailbox = createMiddleware<MailboxContext>(async (c, next) => {
 	const rawId = c.req.param("mailboxId")
 	if (!rawId) return c.json({ error: "Mailbox ID required" }, 400)
-	const mailboxId = decodeURIComponent(rawId)
+	const mailboxId = normalizeMailboxId(rawId)
 
 	// Verify mailbox exists
 	const key = `mailboxes/${mailboxId}.json`

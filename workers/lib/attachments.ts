@@ -142,7 +142,7 @@ export function attachmentObjectKey(
 export function attachmentDeleteErrorMessage(error: AttachmentDeleteError): string {
 	switch (error) {
 		case "attachment_delete_failed":
-			return "The Attachment files could not be removed, so nothing was deleted"
+			return "The Attachment files could not all be removed, so the mail was not deleted"
 	}
 }
 
