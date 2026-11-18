@@ -10,7 +10,7 @@ import { normalizeIsoDateBound } from "../../shared/dates"
 import { Folders } from "../../shared/folders"
 import * as schema from "../db/schema"
 import type { AttachmentKeyRow, AttachmentSummary } from "../lib/attachments"
-import type { OutgoingMessage } from "../lib/schemas"
+import type { OutgoingMessage, StoredAttachment } from "../lib/schemas"
 import type { Env } from "../types"
 import { applyMigrations, mailboxMigrations } from "./migrations"
 
@@ -94,15 +94,8 @@ type EmailData = Pick<
 		starred?: boolean
 	}
 
-interface AttachmentData {
-	id: string
-	email_id: string
-	filename: string
-	mimetype: string
-	size: number
-	content_id?: string | null
-	disposition?: string | null
-}
+type AttachmentData = Pick<StoredAttachment, "id" | "email_id" | "filename" | "mimetype" | "size"> &
+	Partial<{ [K in keyof StoredAttachment]: StoredAttachment[K] | null }>
 
 export class MailboxDO extends DurableObject<Env> {
 	declare __DURABLE_OBJECT_BRAND: never

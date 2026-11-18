@@ -1,112 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Folders } from "../../shared/folders"
-import type { Env } from "../types"
-import { type OutgoingRecorder, type OutgoingThreading, sendAndRecord } from "./outgoing-send"
-import type { OutgoingMessage } from "./schemas"
-
-const MAILBOX = "me@example.com"
-
-/** An Email binding that accepts every message and reports `messageId`. */
-function acceptingBinding(messageId: string | undefined) {
-	const sent: unknown[] = []
-	const binding = {
-		send: async (message: unknown) => {
-			sent.push(message)
-			return { messageId }
-		},
-	}
-	return { binding: binding as unknown as Env["EMAIL"], sends: () => sent.length }
-}
-
-/** An Email binding that refuses every message with `reason`. */
-function refusingBinding(reason: string) {
-	let sends = 0
-	const binding = {
-		send: async () => {
-			sends += 1
-			throw new Error(reason)
-		},
-	}
-	return { binding: binding as unknown as Env["EMAIL"], sends: () => sends }
-}
-
-/** An R2 bucket that records the keys it is asked to write. */
-function fakeBucket() {
-	const keys: string[] = []
-	const bucket = {
-		put: async (key: string) => {
-			keys.push(key)
-		},
-	}
-	return { bucket: bucket as unknown as Env["BUCKET"], keys }
-}
-
-/** A mailbox recorder that records every call, and can fail while recording. */
-function fakeRecorder(options: { rateLimit?: string; failsToRecord?: boolean } = {}) {
-	const recorded: { folder: string; message: OutgoingMessage; attachments: unknown[] }[] = []
-	const marks: string[] = []
-	const recorder: OutgoingRecorder = {
-		checkSendRateLimit: async () => options.rateLimit ?? null,
-		createEmail: async (folder, message, attachments) => {
-			if (options.failsToRecord) throw new Error("storage unavailable")
-			recorded.push({ folder, message, attachments })
-		},
-		markThreadRead: async (threadId) => {
-			marks.push(threadId)
-		},
-	}
-	return { recorder, recorded, marks }
-}
-
-/** One send over fresh fakes, so each case reads as its outcome. */
-function harness(
-	options: {
-		messageId?: string
-		from?: string
-		mailboxId?: string
-		refuse?: string
-		rateLimit?: string
-		failsToRecord?: boolean
-	} = {},
-) {
-	const mail = options.refuse
-		? refusingBinding(options.refuse)
-		: acceptingBinding(options.messageId)
-	const bucket = fakeBucket()
-	const { recorder, recorded, marks } = fakeRecorder(options)
-	const body = {
-		to: "Them@Example.ORG",
-		from: options.from ?? MAILBOX,
-		subject: "Hello",
-		html: "<p>hi</p>",
-		attachments: [
-			{
-				content: "aGVsbG8=",
-				filename: "note.txt",
-				type: "text/plain",
-				disposition: "attachment" as const,
-			},
-		],
-	}
-	return {
-		keys: bucket.keys,
-		recorded,
-		marks,
-		sends: mail.sends,
-		result: (threading: OutgoingThreading = {}) =>
-			sendAndRecord({ EMAIL: mail.binding, BUCKET: bucket.bucket }, recorder, {
-				mailboxId: options.mailboxId ?? MAILBOX,
-				body,
-				threading,
-			}),
-	}
-}
-
-/** The stored `message-id` header entry of a recorded Message. */
-function storedMessageIdHeader(message: OutgoingMessage): string | undefined {
-	const headers: { key: string; value: string }[] = JSON.parse(message.raw_headers)
-	return headers.find((header) => header.key === "message-id")?.value
-}
+import { harness, storedHeader } from "./outgoing-send.fixtures"
 
 describe("an outgoing send", () => {
 	it("records the Message after the binding accepts, with the id the binding sent", async () => {
@@ -119,9 +13,8 @@ describe("an outgoing send", () => {
 		expect(h.recorded).toHaveLength(1)
 		expect(h.recorded[0].folder).toBe(Folders.SENT)
 		expect(message.message_id).toBe("wire-id@example.com")
-		expect(storedMessageIdHeader(message)).toBe("<wire-id@example.com>")
-		const headers: { key: string; value: string }[] = JSON.parse(message.raw_headers)
-		expect(headers.find((h) => h.key === "to")?.value).toBe(message.recipient)
+		expect(storedHeader(message, "message-id")).toBe("<wire-id@example.com>")
+		expect(storedHeader(message, "to")).toBe(message.recipient)
 		expect(message.recipient).toBe("them@example.org")
 		expect(message.thread_id).toBe(message.id)
 		expect(h.recorded[0].attachments).toHaveLength(1)

@@ -177,12 +177,19 @@ export async function sendAndRecord(
 		),
 	})
 
+	let attachmentRows: StoredAttachment[]
+	try {
+		attachmentRows = await storeAttachments(env.BUCKET, rowId, attachments)
+	} catch (e) {
+		const reason = e instanceof Error ? e.message : String(e)
+		console.error("Sent message attachments could not be stored:", reason)
+		return { status: "sent" }
+	}
+	const validatedAttachments = StoredAttachmentSchema.array().parse(attachmentRows)
+
 	let recorded = false
 	try {
-		const attachmentRows = StoredAttachmentSchema.array().parse(
-			await storeAttachments(env.BUCKET, rowId, attachments),
-		)
-		await recorder.createEmail(Folders.SENT, message, attachmentRows)
+		await recorder.createEmail(Folders.SENT, message, validatedAttachments)
 		recorded = true
 		if (send.threading.markThreadRead) await recorder.markThreadRead(threadId)
 	} catch (e) {
@@ -197,7 +204,7 @@ export async function sendAndRecord(
  * The headers blob a stored Message carries, including the id it was sent
  * with. Recipient entries use the one `joinRecipients` normalisation, so the
  * blob and the columns cannot disagree; threading entries come from the same
- * rule as the wire headers, so the source cannot drift from the recipient's copy.
+ * rule as the wire headers, so the source cannot drift from what the recipient saw.
  */
 function sentHeaders(message: {
 	to: string
