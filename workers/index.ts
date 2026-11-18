@@ -167,8 +167,10 @@ app.delete("/api/v1/mailboxes/:mailboxId", async (c) => {
 	const key = `mailboxes/${mailboxId}.json`
 	if (!(await c.env.BUCKET.head(key))) return c.json({ error: "Not found" }, 404)
 	const result = await deleteMailboxAndFiles(c.env, mailboxId)
-	if (result.status === "attachment_delete_failed") return c.json({ error: result.error }, 502)
-	return c.body(null, 204)
+	if (result.status === "deleted") return c.body(null, 204)
+	// An Attachment object or the Mailbox chat could not be removed; the
+	// Mailbox is still listed, so the delete can be retried.
+	return c.json({ error: result.error }, 502)
 })
 
 // -- Emails ---------------------------------------------------------

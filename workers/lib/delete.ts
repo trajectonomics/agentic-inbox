@@ -50,6 +50,7 @@ export type DeleteMailboxResult =
 			remainingKeysCount: number
 			error: string
 	  }
+	| { status: "chat_clear_failed"; mailboxId: string; error: string }
 
 /** What deleting a custom Folder did. One code per rule. */
 export type DeleteFolderResult =
@@ -114,8 +115,10 @@ export async function deleteEmailAndFiles(
  * `mailboxId` is the normalized address (decoded and lowercased), as the
  * Mailbox listing object and the EmailAgent are keyed by it.
  *
- * Throws when the store or the chat cannot be cleared: the listing object is
- * still there, so the caller reports a failure and the Mailbox can be retried.
+ * A chat that cannot be cleared is reported as `chat_clear_failed`; the listing
+ * object is still there, so the caller reports a failure and the Mailbox can be
+ * retried. A Durable Object that throws while its store is removed surfaces as
+ * an ordinary error, and the listing object is likewise still there.
  */
 export async function deleteMailboxAndFiles(
 	env: Env,
@@ -134,7 +137,11 @@ export async function deleteMailboxAndFiles(
 		new Request("https://agents/deleteMailboxState", { method: "POST" }),
 	)
 	if (!cleared.ok) {
-		throw new Error(`The EmailAgent chat for ${mailboxId} could not be cleared (${cleared.status})`)
+		return {
+			status: "chat_clear_failed",
+			mailboxId,
+			error: `The Mailbox chat could not be cleared (${cleared.status}), so the Mailbox was not deleted`,
+		}
 	}
 
 	await env.BUCKET.delete(`mailboxes/${mailboxId}.json`)

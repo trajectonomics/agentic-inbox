@@ -68,9 +68,11 @@ describe("deleting a Mailbox", () => {
 	it("keeps the Mailbox listed when the agent cannot clear its chat", async () => {
 		const { env, order } = fakeDeleteEnv({ mailboxRows: [], refuseChatClear: true })
 
-		await expect(deleteMailboxAndFiles(env, "me@example.com")).rejects.toThrow(
-			"The EmailAgent chat for me@example.com could not be cleared (500)",
-		)
+		expect(await deleteMailboxAndFiles(env, "me@example.com")).toEqual({
+			status: "chat_clear_failed",
+			mailboxId: "me@example.com",
+			error: "The Mailbox chat could not be cleared (500), so the Mailbox was not deleted",
+		})
 		expect(order).toEqual([
 			"listMailboxAttachmentRows",
 			"deleteMailboxStore",
