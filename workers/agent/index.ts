@@ -278,11 +278,29 @@ export class EmailAgent extends AIChatAgent<any> {
 	}
 
 	/**
-	 * Handle HTTP requests to the agent DO. Intercepts /onNewEmail
-	 * before passing to the default AIChatAgent handler.
+	 * Handle HTTP requests to the agent DO. Intercepts /onNewEmail and
+	 * /deleteMailboxState before passing to the default AIChatAgent handler.
 	 */
 	async onRequest(request: Request): Promise<Response> {
 		const url = new URL(request.url)
+		if (url.pathname === "/deleteMailboxState" && request.method === "POST") {
+			// Clear the chat the way the library's own clear path does: the
+			// persisted rows and the in-memory messages, not the whole storage,
+			// which would desync a live agent and its open stream.
+			try {
+				this.sql`delete from cf_ai_chat_agent_messages`
+				this.messages = []
+				return new Response(JSON.stringify({ status: "cleared" }), {
+					headers: { "Content-Type": "application/json" },
+				})
+			} catch (e) {
+				console.error("deleteMailboxState handler failed:", (e as Error).message)
+				return new Response(JSON.stringify({ error: (e as Error).message }), {
+					status: 500,
+					headers: { "Content-Type": "application/json" },
+				})
+			}
+		}
 		if (url.pathname === "/onNewEmail" && request.method === "POST") {
 			try {
 				const emailData = (await request.json()) as {

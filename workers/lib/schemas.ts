@@ -89,6 +89,29 @@ export const SendEmailResponseSchema = z.object({
 })
 
 /**
+ * One Attachment row as a delete reads it: the ids and the filename that name
+ * its R2 object and nothing else. Validated at the Worker/Durable Object
+ * boundary so a delete never builds a key from a shape it did not expect.
+ */
+export const AttachmentKeyRowSchema = z.object({
+	id: z.string(),
+	email_id: z.string(),
+	filename: z.string(),
+})
+
+/** The Attachment rows a Message, Mailbox or Folder delete reads. */
+export const AttachmentKeyRowsSchema = z.array(AttachmentKeyRowSchema)
+
+/**
+ * The Folder row a delete reads: the `is_deletable` rule that decides whether
+ * the Folder may go, and the Attachment rows of the Messages inside it.
+ */
+export const FolderDeletionRowsSchema = z.object({
+	isDeletable: z.boolean(),
+	attachments: AttachmentKeyRowsSchema,
+})
+
+/**
  * The filters `list_attachments` accepts, validated before they reach the
  * mailbox Durable Object. `limit` and `offset` are integers, because SQLite
  * rejects a fractional LIMIT.

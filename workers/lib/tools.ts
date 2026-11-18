@@ -26,6 +26,7 @@ import {
 	isTextMimeType,
 	readAttachmentBody,
 } from "./attachments"
+import { deleteEmailAndFiles } from "./delete"
 import {
 	buildQuotedReplyBlock,
 	buildReferencesChain,
@@ -409,7 +410,10 @@ export async function toolUpdateDraft(
 		}
 	}
 
-	await stub.deleteEmail(params.draftId)
+	const deletion = await deleteEmailAndFiles(env, mailboxId, params.draftId)
+	if (deletion.status === "attachment_delete_failed") {
+		return { error: deletion.error }
+	}
 	await stub.createEmail(
 		Folders.DRAFT,
 		{
@@ -474,19 +478,36 @@ export async function toolDiscardDraft(env: Env, mailboxId: string, draftId: str
 	if (email.folder_id !== Folders.DRAFT) {
 		return { error: "Cannot discard: email is not a draft" }
 	}
-	await stub.deleteEmail(draftId)
+	const deletion = await deleteEmailAndFiles(env, mailboxId, draftId)
+	if (deletion.status === "attachment_delete_failed") {
+		return { error: deletion.error }
+	}
 	return { status: "discarded", draftId }
 }
 
 // ── delete_email ───────────────────────────────────────────────────
 
-export async function toolDeleteEmail(env: Env, mailboxId: string, emailId: string) {
-	const stub = getMailboxStub(env, mailboxId)
-	const result = await stub.deleteEmail(emailId)
-	if (result === null) {
-		return { error: "Email not found", emailId }
+export async function toolDeleteEmail(
+	env: Env,
+	mailboxId: string,
+	emailId: string,
+): Promise<
+	| { status: "deleted"; emailId: string; attachmentsDeletedCount: number }
+	| { error: string; emailId: string }
+> {
+	const result = await deleteEmailAndFiles(env, mailboxId, emailId)
+	switch (result.status) {
+		case "email_not_found":
+			return { error: "Email not found", emailId }
+		case "attachment_delete_failed":
+			return { error: result.error, emailId }
+		case "deleted":
+			return {
+				status: "deleted",
+				emailId,
+				attachmentsDeletedCount: result.attachmentsDeletedCount,
+			}
 	}
-	return { status: "deleted", emailId }
 }
 
 // ── send_reply ─────────────────────────────────────────────────────

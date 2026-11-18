@@ -14,6 +14,7 @@ import {
 	sanitizeAttachmentFilename,
 	storeAttachments,
 } from "./lib/attachments"
+import { deleteEmailAndFiles, deleteFolderAndFiles, deleteMailboxAndFiles } from "./lib/delete"
 import {
 	buildThreadingHeaders,
 	generateMessageId,
@@ -160,10 +161,13 @@ app.put("/api/v1/mailboxes/:mailboxId", async (c) => {
 })
 
 app.delete("/api/v1/mailboxes/:mailboxId", async (c) => {
-	const mailboxId = c.req.param("mailboxId")!
+	// The listing object and the EmailAgent are keyed by the decoded, lowercased
+	// address, so the delete must use the same one.
+	const mailboxId = decodeURIComponent(c.req.param("mailboxId")!).toLowerCase()
 	const key = `mailboxes/${mailboxId}.json`
 	if (!(await c.env.BUCKET.head(key))) return c.json({ error: "Not found" }, 404)
-	await c.env.BUCKET.delete(key) // TODO: also delete DO data and R2 attachment blobs
+	const result = await deleteMailboxAndFiles(c.env, mailboxId)
+	if (result.status === "attachment_delete_failed") return c.json({ error: result.error }, 502)
 	return c.body(null, 204)
 })
 
@@ -279,7 +283,12 @@ app.post("/api/v1/mailboxes/:mailboxId/drafts", async (c: AppContext) => {
 		await c.req.json(),
 	)
 	const stub = c.var.mailboxStub
-	if (draft_id) await stub.deleteEmail(draft_id) // not atomic — create-then-delete would be safer
+	if (draft_id) {
+		const replaced = await deleteEmailAndFiles(c.env, mailboxId, draft_id)
+		if (replaced.status === "attachment_delete_failed") {
+			return c.json({ error: replaced.error }, 502)
+		}
+	}
 	const messageId = crypto.randomUUID()
 	const now = new Date().toISOString()
 	await stub.createEmail(
@@ -320,14 +329,15 @@ app.put("/api/v1/mailboxes/:mailboxId/emails/:id", async (c: AppContext) => {
 })
 
 app.delete("/api/v1/mailboxes/:mailboxId/emails/:id", async (c: AppContext) => {
-	const id = c.req.param("id")!
-	const attachments = await c.var.mailboxStub.deleteEmail(id)
-	if (attachments === null) return c.json({ error: "Not found" }, 404)
-	if (attachments.length > 0)
-		await c.env.BUCKET.delete(
-			attachments.map((att) => attachmentObjectKey(id, att.id, att.filename)),
-		)
-	return c.body(null, 204)
+	const result = await deleteEmailAndFiles(c.env, c.req.param("mailboxId")!, c.req.param("id")!)
+	switch (result.status) {
+		case "email_not_found":
+			return c.json({ error: "Not found" }, 404)
+		case "attachment_delete_failed":
+			return c.json({ error: result.error }, 502)
+		case "deleted":
+			return c.body(null, 204)
+	}
 })
 
 app.post("/api/v1/mailboxes/:mailboxId/emails/:id/move", async (c: AppContext) => {
@@ -373,8 +383,17 @@ app.put("/api/v1/mailboxes/:mailboxId/folders/:id", async (c: AppContext) => {
 })
 
 app.delete("/api/v1/mailboxes/:mailboxId/folders/:id", async (c: AppContext) => {
-	const ok = await c.var.mailboxStub.deleteFolder(c.req.param("id")!)
-	return ok ? c.body(null, 204) : c.json({ error: "Folder not found or cannot be deleted" }, 400)
+	const result = await deleteFolderAndFiles(c.env, c.req.param("mailboxId")!, c.req.param("id")!)
+	switch (result.status) {
+		case "folder_not_found":
+			return c.json({ error: "Folder not found" }, 404)
+		case "folder_not_deletable":
+			return c.json({ error: "Folder cannot be deleted" }, 400)
+		case "attachment_delete_failed":
+			return c.json({ error: result.error }, 502)
+		case "deleted":
+			return c.body(null, 204)
+	}
 })
 
 // -- Search ---------------------------------------------------------
