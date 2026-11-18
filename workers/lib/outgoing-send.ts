@@ -23,10 +23,16 @@ import {
 	generateMessageId,
 	joinRecipients,
 	normalizeMessageId,
+	type SenderValidationCode,
 	SenderValidationError,
 	validateSender,
 } from "./email-helpers"
-import { type OutgoingMessage, OutgoingMessageSchema, type SendEmailRequest } from "./schemas"
+import {
+	type OutgoingMessage,
+	OutgoingMessageSchema,
+	type SendEmailRequest,
+	StoredAttachmentSchema,
+} from "./schemas"
 
 /**
  * The mailbox calls an outgoing send makes. Structural on purpose, so the
@@ -41,7 +47,7 @@ export interface OutgoingRecorder {
 		message: OutgoingMessage,
 		attachments: StoredAttachment[],
 	): Promise<void>
-	markThreadRead(threadId: string): Promise<unknown>
+	markThreadRead(threadId: string): Promise<void>
 }
 
 /** How one route threads its send: the only thing that differs between the routes. */
@@ -65,11 +71,13 @@ export interface OutgoingSend {
 
 /**
  * What happened to an outgoing message. One status per rule; never widen one
- * status to cover another.
+ * status to cover another. A sender refusal carries the code of the rule it
+ * broke. `sent` carries the recorded Message's id only when the recording
+ * succeeded; an accepted send whose recording failed has no row to name.
  */
 export type OutgoingSendResult =
-	| { status: "sent"; id: string }
-	| { status: "invalid_sender"; error: string }
+	| { status: "sent"; id?: string }
+	| { status: "invalid_sender"; code: SenderValidationCode; error: string }
 	| { status: "rate_limited"; error: string }
 	| { status: "not_sent"; error: string }
 
@@ -80,11 +88,12 @@ type SendEnv = Pick<Env, "EMAIL" | "BUCKET">
  * Send one outgoing message and record it, in that order.
  *
  * Returns a verdict rather than a response, so the route keeps the status
- * mapping. `sent` carries the recorded Message's row id. `invalid_sender`
- * (400), `rate_limited` (429) and `not_sent` (502) each carry the message to
- * show. A send the binding accepted is `sent` even if recording it fails:
- * the mail is out and the Email Service has no idempotency key, so an error
- * status would invite the person to send it twice.
+ * mapping. When recording succeeds, `sent` carries the Message's row id;
+ * when it fails, `sent` has no id because nothing was recorded.
+ * `invalid_sender` (400), `rate_limited` (429) and `not_sent` (502) each carry
+ * the message to show. A send the binding accepted is `sent` even if recording
+ * it fails: the mail is out and the Email Service has no idempotency key, so
+ * an error status would invite the person to send it twice.
  */
 export async function sendAndRecord(
 	env: SendEnv,
@@ -99,14 +108,16 @@ export async function sendAndRecord(
 	try {
 		;({ toStr, fromEmail, fromDomain } = validateSender(to, from, send.mailboxId))
 	} catch (e) {
-		if (e instanceof SenderValidationError) return { status: "invalid_sender", error: e.message }
+		if (e instanceof SenderValidationError) {
+			return { status: "invalid_sender", code: e.code, error: e.message }
+		}
 		throw e
 	}
 
 	const rateLimitError = await recorder.checkSendRateLimit()
 	if (rateLimitError) return { status: "rate_limited", error: rateLimitError }
 
-	const { messageId: rowId, outgoingMessageId } = generateMessageId(fromDomain)
+	const { rowId, outgoingMessageId } = generateMessageId(fromDomain)
 	const inReplyTo = send.threading.inReplyTo || null
 	const references = send.threading.references ?? []
 
@@ -132,47 +143,66 @@ export async function sendAndRecord(
 
 	const date = new Date().toISOString()
 	const threadId = send.threading.threadId || inReplyTo || rowId
-	try {
-		const attachmentRows = await storeAttachments(env.BUCKET, rowId, attachments)
-		await recorder.createEmail(
-			Folders.SENT,
-			OutgoingMessageSchema.parse({
-				id: rowId,
+	const ccStr = joinRecipients(cc)
+	const bccStr = joinRecipients(bcc)
+
+	// A schema violation is our own construction being wrong, not a storage
+	// failure. Parse outside the recording catch so it cannot be logged away
+	// as a successful send that merely failed to be recorded.
+	const message = OutgoingMessageSchema.parse({
+		id: rowId,
+		subject,
+		sender: fromEmail,
+		recipient: toStr,
+		cc: ccStr,
+		bcc: bccStr,
+		date,
+		body: html || text || "",
+		in_reply_to: inReplyTo,
+		email_references: references.length > 0 ? JSON.stringify(references) : null,
+		thread_id: threadId,
+		message_id: sentMessageId,
+		raw_headers: JSON.stringify(
+			sentHeaders({
+				to: toStr,
+				cc: ccStr,
+				bcc: bccStr,
+				from,
 				subject,
-				sender: fromEmail,
-				recipient: toStr,
-				cc: joinRecipients(cc),
-				bcc: joinRecipients(bcc),
 				date,
-				body: html || text || "",
-				in_reply_to: inReplyTo,
-				email_references: references.length > 0 ? JSON.stringify(references) : null,
-				thread_id: threadId,
-				message_id: sentMessageId,
-				raw_headers: JSON.stringify(
-					sentHeaders({ to, cc, bcc, from, subject, date, sentMessageId, inReplyTo, references }),
-				),
+				sentMessageId,
+				inReplyTo,
+				references,
 			}),
-			attachmentRows,
+		),
+	})
+
+	let recorded = false
+	try {
+		const attachmentRows = StoredAttachmentSchema.array().parse(
+			await storeAttachments(env.BUCKET, rowId, attachments),
 		)
+		await recorder.createEmail(Folders.SENT, message, attachmentRows)
+		recorded = true
 		if (send.threading.markThreadRead) await recorder.markThreadRead(threadId)
 	} catch (e) {
 		const reason = e instanceof Error ? e.message : String(e)
 		console.error("Sent message could not be recorded:", reason)
 	}
 
-	return { status: "sent", id: rowId }
+	return recorded ? { status: "sent", id: rowId } : { status: "sent" }
 }
 
 /**
  * The headers blob a stored Message carries, including the id it was sent
- * with. Its threading entries come from the same rule as the wire headers, so
- * what a reader sees in the source cannot drift from what the recipient saw.
+ * with. Recipient entries use the one `joinRecipients` normalisation, so the
+ * blob and the columns cannot disagree; threading entries come from the same
+ * rule as the wire headers, so the source cannot drift from the recipient's copy.
  */
 function sentHeaders(message: {
-	to: string | string[]
-	cc?: string | string[]
-	bcc?: string | string[]
+	to: string
+	cc: string | null
+	bcc: string | null
 	from: string | { email: string; name: string }
 	subject: string
 	date: string
@@ -183,9 +213,9 @@ function sentHeaders(message: {
 	const { to, cc, bcc, from, subject, date, sentMessageId, inReplyTo, references } = message
 	return [
 		{ key: "from", value: typeof from === "string" ? from : `${from.name} <${from.email}>` },
-		{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
-		...(cc ? [{ key: "cc", value: Array.isArray(cc) ? cc.join(", ") : cc }] : []),
-		...(bcc ? [{ key: "bcc", value: Array.isArray(bcc) ? bcc.join(", ") : bcc }] : []),
+		{ key: "to", value: to },
+		...(cc ? [{ key: "cc", value: cc }] : []),
+		...(bcc ? [{ key: "bcc", value: bcc }] : []),
 		{ key: "subject", value: subject },
 		{ key: "date", value: date },
 		{ key: "message-id", value: `<${sentMessageId}>` },

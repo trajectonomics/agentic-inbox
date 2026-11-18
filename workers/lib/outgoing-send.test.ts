@@ -63,6 +63,7 @@ function harness(
 	options: {
 		messageId?: string
 		from?: string
+		mailboxId?: string
 		refuse?: string
 		rateLimit?: string
 		failsToRecord?: boolean
@@ -74,7 +75,7 @@ function harness(
 	const bucket = fakeBucket()
 	const { recorder, recorded, marks } = fakeRecorder(options)
 	const body = {
-		to: "them@example.org",
+		to: "Them@Example.ORG",
 		from: options.from ?? MAILBOX,
 		subject: "Hello",
 		html: "<p>hi</p>",
@@ -94,7 +95,7 @@ function harness(
 		sends: mail.sends,
 		result: (threading: OutgoingThreading = {}) =>
 			sendAndRecord({ EMAIL: mail.binding, BUCKET: bucket.bucket }, recorder, {
-				mailboxId: MAILBOX,
+				mailboxId: options.mailboxId ?? MAILBOX,
 				body,
 				threading,
 			}),
@@ -119,6 +120,9 @@ describe("an outgoing send", () => {
 		expect(h.recorded[0].folder).toBe(Folders.SENT)
 		expect(message.message_id).toBe("wire-id@example.com")
 		expect(storedMessageIdHeader(message)).toBe("<wire-id@example.com>")
+		const headers: { key: string; value: string }[] = JSON.parse(message.raw_headers)
+		expect(headers.find((h) => h.key === "to")?.value).toBe(message.recipient)
+		expect(message.recipient).toBe("them@example.org")
 		expect(message.thread_id).toBe(message.id)
 		expect(h.recorded[0].attachments).toHaveLength(1)
 		expect(h.keys[0].startsWith(`attachments/${message.id}/`)).toBe(true)
@@ -191,7 +195,7 @@ describe("an outgoing send", () => {
 
 		const result = await h.result()
 
-		expect(result.status).toBe("sent")
+		expect(result).toEqual({ status: "sent" })
 		expect(h.sends()).toBe(1)
 		expect(h.recorded).toHaveLength(0)
 	})
@@ -201,7 +205,20 @@ describe("an outgoing send", () => {
 
 		expect(await h.result()).toEqual({
 			status: "invalid_sender",
+			code: "sender_mismatch",
 			error: "From address must match the mailbox email address",
+		})
+		expect(h.sends()).toBe(0)
+		expect(h.recorded).toHaveLength(0)
+	})
+
+	it("codes an address with no domain as a different sender rule", async () => {
+		const h = harness({ from: "username", mailboxId: "username" })
+
+		expect(await h.result()).toEqual({
+			status: "invalid_sender",
+			code: "sender_address_invalid",
+			error: "Invalid sender email address",
 		})
 		expect(h.sends()).toBe(0)
 		expect(h.recorded).toHaveLength(0)

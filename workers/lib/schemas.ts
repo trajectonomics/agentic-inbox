@@ -109,8 +109,25 @@ export const OutgoingMessageSchema = z.object({
 /** The stored shape of an accepted outgoing Message. */
 export type OutgoingMessage = z.infer<typeof OutgoingMessageSchema>
 
-export const SendEmailResponseSchema = z.object({
+/**
+ * An attachment row crossing from the Worker into the mailbox Durable Object
+ * after its file has been written to R2.
+ */
+export const StoredAttachmentSchema = z.object({
 	id: z.string(),
+	email_id: z.string(),
+	filename: z.string(),
+	mimetype: z.string(),
+	size: z.number().int().nonnegative(),
+	content_id: z.string().nullable(),
+	disposition: z.string(),
+})
+
+/** A validated attachment row the mailbox database keeps. */
+export type StoredAttachment = z.infer<typeof StoredAttachmentSchema>
+
+export const SendEmailResponseSchema = z.object({
+	id: z.string().optional(),
 	status: z.string(),
 })
 

@@ -2,6 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
+import type { Env } from "../types"
 /**
  * Attachment rules, storage and retrieval.
  *
@@ -11,7 +12,9 @@
  * an attachment for an agent is pure; only `storeAttachments`,
  * `readAttachmentBody` and `deleteAttachmentObjects` touch R2.
  */
-import type { Env } from "../types"
+import type { StoredAttachment } from "./schemas"
+
+export type { StoredAttachment } from "./schemas"
 
 /** Largest attachment body an agent receives inline, in bytes. */
 export const MAX_INLINE_ATTACHMENT_BYTES = 5 * 1024 * 1024
@@ -75,17 +78,6 @@ export type AttachmentBody =
 	| { kind: "text"; content: string; truncated: boolean }
 	| { kind: "base64"; content: string }
 	| { kind: "too_large"; sizeBytes: number; limitBytes: number }
-
-/** The attachments a caller sends with an email, after decoding base64. */
-export interface StoredAttachment {
-	id: string
-	email_id: string
-	filename: string
-	mimetype: string
-	size: number
-	content_id: string | null
-	disposition: string
-}
 
 /** The characters Windows rejects, plus the two path separators. */
 const UNSAFE_FILENAME_CHARS = /[/\\:*?"<>|]/g
