@@ -83,6 +83,9 @@ export const SendEmailRequestSchema = z
 		message: "Either 'html' or 'text' must be provided",
 	})
 
+/** An outgoing message as a browser send route receives it, after validation. */
+export type SendEmailRequest = z.infer<typeof SendEmailRequestSchema>
+
 export const SendEmailResponseSchema = z.object({
 	id: z.string(),
 	status: z.string(),

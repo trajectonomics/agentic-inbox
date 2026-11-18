@@ -86,6 +86,22 @@ export function generateMessageId(fromDomain: string): {
 	return { messageId, outgoingMessageId }
 }
 
+// ── Message ID normalisation ───────────────────────────────────────
+
+/**
+ * Reduce a `Message-ID` value to the bare id inside the angle brackets.
+ *
+ * A blank value normalises to null so the caller stores or generates an id
+ * instead of an empty string. One rule, shared by the inbound path and the
+ * outgoing send path.
+ */
+export function normalizeMessageId(raw: string | null | undefined): string | null {
+	const value = raw?.trim()
+	if (!value) return null
+	const bracketed = value.match(/<([^>]+)>/)
+	return bracketed ? bracketed[1] : value.split(/\s+/)[0]
+}
+
 // ── Threading ──────────────────────────────────────────────────────
 
 /**
