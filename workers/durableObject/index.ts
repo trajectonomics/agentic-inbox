@@ -4,12 +4,12 @@
 
 import { DurableObject } from "cloudflare:workers"
 import type { SQL } from "drizzle-orm"
-import { and, asc, desc, eq, gte, lte, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/durable-sqlite"
 import { normalizeIsoDateBound } from "../../shared/dates"
 import { Folders } from "../../shared/folders"
 import * as schema from "../db/schema"
-import type { AttachmentSummary } from "../lib/attachments"
+import type { AttachmentKeyRow, AttachmentSummary } from "../lib/attachments"
 import type { Env } from "../types"
 import { applyMigrations, mailboxMigrations } from "./migrations"
 
@@ -528,27 +528,37 @@ export class MailboxDO extends DurableObject<Env> {
 		return { threadId, markedRead: true }
 	}
 
-	async deleteEmail(id: string) {
+	/**
+	 * The Attachment rows of one Message, or null when no such Message exists.
+	 * `deleteEmailAndFiles` in `workers/lib/delete.ts` completes the delete.
+	 */
+	async listAttachmentRows(emailId: string): Promise<AttachmentKeyRow[] | null> {
 		const email = this.db
 			.select({ id: schema.emails.id })
 			.from(schema.emails)
-			.where(eq(schema.emails.id, id))
+			.where(eq(schema.emails.id, emailId))
 			.get()
 
 		if (!email) return null
 
-		const emailAttachments = this.db
+		return this.db
 			.select({
 				id: schema.attachments.id,
+				email_id: schema.attachments.email_id,
 				filename: schema.attachments.filename,
 			})
 			.from(schema.attachments)
-			.where(eq(schema.attachments.email_id, id))
+			.where(eq(schema.attachments.email_id, emailId))
 			.all()
+	}
 
-		this.db.delete(schema.emails).where(eq(schema.emails.id, id)).run()
-
-		return emailAttachments
+	/**
+	 * Remove one Message's rows: its Attachment rows, then the Message row.
+	 * Removes no R2 object; `deleteEmailAndFiles` removes those first.
+	 */
+	async deleteEmailRows(emailId: string): Promise<void> {
+		this.db.delete(schema.attachments).where(eq(schema.attachments.email_id, emailId)).run()
+		this.db.delete(schema.emails).where(eq(schema.emails.id, emailId)).run()
 	}
 
 	async getAttachment(id: string) {
@@ -664,20 +674,79 @@ export class MailboxDO extends DurableObject<Env> {
 		return result
 	}
 
-	async deleteFolder(id: string) {
+	/**
+	 * The Attachment rows of every Message in this Mailbox, for a Mailbox
+	 * delete. `deleteMailboxAndFiles` in `workers/lib/delete.ts` completes it.
+	 */
+	async listMailboxAttachmentRows(): Promise<AttachmentKeyRow[]> {
+		return this.db
+			.select({
+				id: schema.attachments.id,
+				email_id: schema.attachments.email_id,
+				filename: schema.attachments.filename,
+			})
+			.from(schema.attachments)
+			.all()
+	}
+
+	/**
+	 * Remove the Mailbox's whole store and leave an empty one in its place, so
+	 * the live instance keeps answering after the wipe. Removing no R2 object
+	 * and no listing object is deliberate: `deleteMailboxAndFiles` removes those
+	 * first and last.
+	 */
+	async deleteMailboxStore(): Promise<void> {
+		await this.ctx.storage.deleteAll()
+		applyMigrations(this.ctx.storage.sql, mailboxMigrations, this.ctx.storage)
+	}
+
+	/**
+	 * A Folder's `is_deletable` rule and the Attachment rows of the Messages
+	 * inside it, or null when the Folder does not exist.
+	 * `deleteFolderAndFiles` in `workers/lib/delete.ts` completes the delete.
+	 */
+	async listFolderAttachmentRows(
+		folderId: string,
+	): Promise<{ isDeletable: boolean; attachments: AttachmentKeyRow[] } | null> {
 		const folder = this.db
 			.select({ is_deletable: schema.folders.is_deletable })
 			.from(schema.folders)
-			.where(eq(schema.folders.id, id))
+			.where(eq(schema.folders.id, folderId))
 			.get()
 
-		if (!folder || folder.is_deletable === 0) {
-			return false
-		}
+		if (!folder) return null
 
-		this.db.delete(schema.folders).where(eq(schema.folders.id, id)).run()
+		const attachments = this.db
+			.select({
+				id: schema.attachments.id,
+				email_id: schema.attachments.email_id,
+				filename: schema.attachments.filename,
+			})
+			.from(schema.attachments)
+			.innerJoin(schema.emails, eq(schema.emails.id, schema.attachments.email_id))
+			.where(eq(schema.emails.folder_id, folderId))
+			.all()
 
-		return true
+		return { isDeletable: folder.is_deletable !== 0, attachments }
+	}
+
+	/**
+	 * Remove a Folder's rows: the Attachment rows and Messages inside it, then
+	 * the Folder row. Removes no R2 object; `deleteFolderAndFiles` removes those
+	 * first.
+	 */
+	async deleteFolderRows(folderId: string): Promise<void> {
+		const folderEmails = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.folder_id, folderId))
+
+		this.db
+			.delete(schema.attachments)
+			.where(inArray(schema.attachments.email_id, folderEmails))
+			.run()
+		this.db.delete(schema.emails).where(eq(schema.emails.folder_id, folderId)).run()
+		this.db.delete(schema.folders).where(eq(schema.folders.id, folderId)).run()
 	}
 
 	async moveEmail(id: string, folderId: string) {

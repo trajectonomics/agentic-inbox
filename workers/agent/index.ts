@@ -278,11 +278,34 @@ export class EmailAgent extends AIChatAgent<any> {
 	}
 
 	/**
-	 * Handle HTTP requests to the agent DO. Intercepts /onNewEmail
-	 * before passing to the default AIChatAgent handler.
+	 * Handle HTTP requests to the agent DO. Intercepts /onNewEmail and
+	 * /deleteMailboxState before passing to the default AIChatAgent handler.
 	 */
 	async onRequest(request: Request): Promise<Response> {
 		const url = new URL(request.url)
+		if (url.pathname === "/deleteMailboxState" && request.method === "POST") {
+			// Clear everything of the chat this handler can reach from a
+			// subclass: the persisted messages, the persisted request context
+			// (the last chat body), the resumable stream rows and the in-memory
+			// messages. The library's remaining caches are private fields of a
+			// warm instance, and this Mailbox's listing object goes last, so no
+			// client can reach the agent again.
+			try {
+				this.sql`delete from cf_ai_chat_agent_messages`
+				this.sql`delete from cf_ai_chat_request_context`
+				this._resumableStream.clearAll()
+				this.messages = []
+				return new Response(JSON.stringify({ status: "cleared" }), {
+					headers: { "Content-Type": "application/json" },
+				})
+			} catch (e) {
+				console.error("deleteMailboxState handler failed:", (e as Error).message)
+				return new Response(JSON.stringify({ error: (e as Error).message }), {
+					status: 500,
+					headers: { "Content-Type": "application/json" },
+				})
+			}
+		}
 		if (url.pathname === "/onNewEmail" && request.method === "POST") {
 			try {
 				const emailData = (await request.json()) as {

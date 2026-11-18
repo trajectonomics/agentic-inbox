@@ -5,11 +5,11 @@
 /**
  * Attachment rules, storage and retrieval.
  *
- * The key a file is written under and the key it is read under come from
- * `attachmentObjectKey`, so the store, the inbound path, the download route
- * and the agent reader cannot drift apart. Everything that shapes an
- * attachment for an agent is pure; only `storeAttachments` and
- * `readAttachmentBody` touch R2.
+ * The key a file is written under, read from and removed at comes from
+ * `attachmentObjectKey`, so the store, the inbound path, the download route,
+ * the agent reader and the delete cannot drift apart. Everything that shapes
+ * an attachment for an agent is pure; only `storeAttachments`,
+ * `readAttachmentBody` and `deleteAttachmentObjects` touch R2.
  */
 import type { Env } from "../types"
 
@@ -28,6 +28,25 @@ export type AttachmentReadError =
 	| "attachment_file_missing"
 	| "attachment_too_large"
 	| "attachment_not_readable"
+
+/** Why Attachment objects could not be removed. One code per rule. */
+export type AttachmentDeleteError = "attachment_delete_failed"
+
+/** Most keys one R2 delete call accepts. */
+export const ATTACHMENT_DELETE_CHUNK_SIZE = 1000
+
+/** The Attachment rows a delete reads: enough to name every R2 object. */
+export interface AttachmentKeyRow {
+	id: string
+	email_id: string
+	filename: string
+}
+
+/** What a chunked Attachment-object delete removed and what it left behind. */
+export interface AttachmentObjectDeleteResult {
+	deletedKeys: string[]
+	remainingKeys: string[]
+}
 
 /** An attachment row as the mailbox database stores it. */
 export interface AttachmentRecord {
@@ -115,6 +134,53 @@ export function attachmentObjectKey(
 	filename: string,
 ): string {
 	return `attachments/${emailId}/${attachmentId}/${sanitizeAttachmentFilename(filename)}`
+}
+
+/**
+ * The one sentence a person reads for a failed Attachment delete.
+ */
+export function attachmentDeleteErrorMessage(error: AttachmentDeleteError): string {
+	switch (error) {
+		case "attachment_delete_failed":
+			return "The Attachment files could not all be removed, so the mail was not deleted"
+	}
+}
+
+/**
+ * The R2 keys to remove for a set of Attachment rows, one per row, in the
+ * row order. Each key comes from the row's own Message id, Attachment id and
+ * filename, so a wrong id in a URL cannot name another Message's object.
+ */
+export function attachmentObjectKeys(rows: readonly AttachmentKeyRow[]): string[] {
+	return rows.map((row) => attachmentObjectKey(row.email_id, row.id, row.filename))
+}
+
+/**
+ * Remove Attachment objects from R2 in chunks of `ATTACHMENT_DELETE_CHUNK_SIZE`,
+ * the most one delete call accepts. Makes no call for an empty list, stops at
+ * the first chunk R2 refuses, and returns what it removed and what remains, so
+ * the caller can keep the rows that name the remaining keys and retry.
+ *
+ * R2's delete is idempotent on a key that is already gone, so a retry over the
+ * remainder is safe.
+ */
+export async function deleteAttachmentObjects(
+	bucket: Env["BUCKET"],
+	keys: readonly string[],
+): Promise<AttachmentObjectDeleteResult> {
+	const deletedKeys: string[] = []
+
+	for (let offset = 0; offset < keys.length; offset += ATTACHMENT_DELETE_CHUNK_SIZE) {
+		const chunk = keys.slice(offset, offset + ATTACHMENT_DELETE_CHUNK_SIZE)
+		try {
+			await bucket.delete(chunk.length === 1 ? chunk[0] : chunk)
+		} catch {
+			return { deletedKeys, remainingKeys: keys.slice(offset) }
+		}
+		deletedKeys.push(...chunk)
+	}
+
+	return { deletedKeys, remainingKeys: [] }
 }
 
 /**
