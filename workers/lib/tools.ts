@@ -538,7 +538,7 @@ export async function toolSendReply(
 	const { originalMsgId, references, threadId } = buildReferencesChain(originalEmail)
 	const fromDomain = mailboxId.split("@")[1]
 	if (!fromDomain) throw new Error("Invalid mailbox email address")
-	const { messageId, outgoingMessageId } = generateMessageId(fromDomain)
+	const { rowId, outgoingMessageId } = generateMessageId(fromDomain)
 
 	// Verify and append quoted original message
 	const sanitizedBody = await verifyDraft(env.AI, params.bodyHtml)
@@ -570,7 +570,7 @@ export async function toolSendReply(
 	await stub.createEmail(
 		Folders.SENT,
 		{
-			id: messageId,
+			id: rowId,
 			subject: params.subject,
 			sender: mailboxId.toLowerCase(),
 			recipient: params.to.toLowerCase(),
@@ -584,7 +584,7 @@ export async function toolSendReply(
 		[],
 	)
 
-	return { status: "sent", messageId, message: `Reply sent to ${params.to}` }
+	return { status: "sent", messageId: rowId, message: `Reply sent to ${params.to}` }
 }
 
 // ── send_email ─────────────────────────────────────────────────────
@@ -608,7 +608,7 @@ export async function toolSendEmail(
 
 	const fromDomain = mailboxId.split("@")[1]
 	if (!fromDomain) throw new Error("Invalid mailbox email address")
-	const { messageId, outgoingMessageId } = generateMessageId(fromDomain)
+	const { rowId, outgoingMessageId } = generateMessageId(fromDomain)
 
 	const sanitizedBody = await verifyDraft(env.AI, params.bodyHtml)
 	if (!sanitizedBody) {
@@ -632,7 +632,7 @@ export async function toolSendEmail(
 	await stub.createEmail(
 		Folders.SENT,
 		{
-			id: messageId,
+			id: rowId,
 			subject: params.subject,
 			sender: mailboxId.toLowerCase(),
 			recipient: params.to.toLowerCase(),
@@ -640,11 +640,11 @@ export async function toolSendEmail(
 			body: sanitizedBody,
 			in_reply_to: null,
 			email_references: null,
-			thread_id: messageId,
+			thread_id: rowId,
 			message_id: outgoingMessageId,
 		},
 		[],
 	)
 
-	return { status: "sent", messageId, message: `Email sent to ${params.to}` }
+	return { status: "sent", messageId: rowId, message: `Email sent to ${params.to}` }
 }

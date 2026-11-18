@@ -83,8 +83,51 @@ export const SendEmailRequestSchema = z
 		message: "Either 'html' or 'text' must be provided",
 	})
 
-export const SendEmailResponseSchema = z.object({
+/** An outgoing message as a browser send route receives it, after validation. */
+export type SendEmailRequest = z.infer<typeof SendEmailRequestSchema>
+
+/**
+ * The Message an accepted send records in the `sent` folder, validated as it
+ * crosses from the Worker into the mailbox Durable Object.
+ */
+export const OutgoingMessageSchema = z.object({
 	id: z.string(),
+	subject: z.string(),
+	sender: z.string(),
+	recipient: z.string(),
+	cc: z.string().nullable(),
+	bcc: z.string().nullable(),
+	date: z.string(),
+	body: z.string(),
+	in_reply_to: z.string().nullable(),
+	email_references: z.string().nullable(),
+	thread_id: z.string(),
+	message_id: z.string(),
+	raw_headers: z.string(),
+})
+
+/** The stored shape of an accepted outgoing Message. */
+export type OutgoingMessage = z.infer<typeof OutgoingMessageSchema>
+
+/**
+ * An attachment row crossing from the Worker into the mailbox Durable Object
+ * after its file has been written to R2.
+ */
+export const StoredAttachmentSchema = z.object({
+	id: z.string(),
+	email_id: z.string(),
+	filename: z.string(),
+	mimetype: z.string(),
+	size: z.number().int().nonnegative(),
+	content_id: z.string().nullable(),
+	disposition: z.string(),
+})
+
+/** A validated attachment row the mailbox database keeps. */
+export type StoredAttachment = z.infer<typeof StoredAttachmentSchema>
+
+export const SendEmailResponseSchema = z.object({
+	id: z.string().optional(),
 	status: z.string(),
 })
 

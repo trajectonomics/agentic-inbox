@@ -10,6 +10,7 @@ import { normalizeIsoDateBound } from "../../shared/dates"
 import { Folders } from "../../shared/folders"
 import * as schema from "../db/schema"
 import type { AttachmentKeyRow, AttachmentSummary } from "../lib/attachments"
+import type { OutgoingMessage, StoredAttachment } from "../lib/schemas"
 import type { Env } from "../types"
 import { applyMigrations, mailboxMigrations } from "./migrations"
 
@@ -84,33 +85,17 @@ interface ListAttachmentsOptions {
 	offset?: number
 }
 
-interface EmailData {
-	id: string
-	subject: string
-	sender: string
-	recipient: string
-	cc?: string | null
-	bcc?: string | null
-	date: string
-	body: string
-	read?: boolean
-	starred?: boolean
-	in_reply_to?: string | null
-	email_references?: string | null
-	thread_id?: string | null
-	message_id?: string | null
-	raw_headers?: string | null
-}
+type EmailData = Pick<
+	OutgoingMessage,
+	"id" | "subject" | "sender" | "recipient" | "date" | "body"
+> &
+	Partial<{ [K in keyof OutgoingMessage]: OutgoingMessage[K] | null }> & {
+		read?: boolean
+		starred?: boolean
+	}
 
-interface AttachmentData {
-	id: string
-	email_id: string
-	filename: string
-	mimetype: string
-	size: number
-	content_id?: string | null
-	disposition?: string | null
-}
+type AttachmentData = Pick<StoredAttachment, "id" | "email_id" | "filename" | "mimetype" | "size"> &
+	Partial<{ [K in keyof StoredAttachment]: StoredAttachment[K] | null }>
 
 export class MailboxDO extends DurableObject<Env> {
 	declare __DURABLE_OBJECT_BRAND: never
@@ -520,12 +505,11 @@ export class MailboxDO extends DurableObject<Env> {
 		return this.getEmail(id)
 	}
 
-	async markThreadRead(threadId: string) {
+	async markThreadRead(threadId: string): Promise<void> {
 		this.ctx.storage.sql.exec(
 			`UPDATE emails SET read = 1 WHERE thread_id = ? AND read = 0`,
 			threadId,
 		)
-		return { threadId, markedRead: true }
 	}
 
 	/**

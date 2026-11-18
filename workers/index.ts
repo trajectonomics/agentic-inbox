@@ -7,24 +7,18 @@ import { cors } from "hono/cors"
 import PostalMime from "postal-mime"
 import { z } from "zod"
 import { Folders } from "../shared/folders"
-import { sendEmail } from "./email-sender"
 import {
 	attachmentObjectKey,
 	type StoredAttachment,
 	sanitizeAttachmentFilename,
-	storeAttachments,
 } from "./lib/attachments"
 import { deleteEmailAndFiles, deleteFolderAndFiles, deleteMailboxAndFiles } from "./lib/delete"
-import {
-	buildThreadingHeaders,
-	generateMessageId,
-	listMailboxes,
-	SenderValidationError,
-	validateSender,
-} from "./lib/email-helpers"
+import { listMailboxes, normalizeMessageId } from "./lib/email-helpers"
 import { type MailboxContext, normalizeMailboxId, requireMailbox } from "./lib/mailbox"
+import { sendAndRecord } from "./lib/outgoing-send"
 import { SendEmailRequestSchema } from "./lib/schemas"
 import { handleForwardEmail, handleReplyEmail } from "./routes/reply-forward"
+import { respondToSendResult } from "./routes/send-response"
 import type { Env } from "./types"
 
 type AppContext = Context<MailboxContext>
@@ -205,82 +199,19 @@ app.get("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	const mailboxId = c.req.param("mailboxId")!
 	const body = SendEmailRequestSchema.parse(await c.req.json())
-	const {
-		to,
-		cc,
-		bcc,
-		from,
-		subject,
-		html,
-		text,
-		attachments,
-		in_reply_to,
-		references,
-		thread_id,
-	} = body
 
-	let toStr: string, fromEmail: string, fromDomain: string
-	try {
-		;({ toStr, fromEmail, fromDomain } = validateSender(to, from, mailboxId))
-	} catch (e) {
-		if (e instanceof SenderValidationError) return c.json({ error: e.message }, 400)
-		throw e
-	}
-
-	const { messageId, outgoingMessageId } = generateMessageId(fromDomain)
-	const stub = c.var.mailboxStub
-	const rateLimitError = await (stub as any).checkSendRateLimit()
-	if (rateLimitError) return c.json({ error: rateLimitError }, 429)
-	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments)
-
-	await stub.createEmail(
-		Folders.SENT,
-		{
-			id: messageId,
-			subject,
-			sender: fromEmail,
-			recipient: toStr,
-			cc: cc ? (Array.isArray(cc) ? cc.join(", ") : cc).toLowerCase() : null,
-			bcc: bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc).toLowerCase() : null,
-			date: new Date().toISOString(),
-			body: html || text || "",
-			in_reply_to: in_reply_to || null,
-			email_references: references ? JSON.stringify(references) : null,
-			thread_id: thread_id || in_reply_to || messageId,
-			message_id: outgoingMessageId,
-			raw_headers: JSON.stringify([
-				{ key: "from", value: typeof from === "string" ? from : `${from.name} <${from.email}>` },
-				{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
-				...(cc ? [{ key: "cc", value: Array.isArray(cc) ? cc.join(", ") : cc }] : []),
-				...(bcc ? [{ key: "bcc", value: Array.isArray(bcc) ? bcc.join(", ") : bcc }] : []),
-				{ key: "subject", value: subject },
-				{ key: "date", value: new Date().toISOString() },
-				{ key: "message-id", value: `<${outgoingMessageId}>` },
-			]),
+	const result = await sendAndRecord(c.env, c.var.mailboxStub, {
+		mailboxId,
+		body,
+		// New mail starts its own thread unless the caller threads it onto one.
+		threading: {
+			inReplyTo: body.in_reply_to,
+			references: body.references,
+			threadId: body.thread_id,
 		},
-		attachmentData,
-	)
+	})
 
-	c.executionCtx.waitUntil(
-		sendEmail(c.env.EMAIL, {
-			to,
-			cc,
-			bcc,
-			from,
-			subject,
-			html,
-			text,
-			attachments: attachments?.map((att) => ({
-				content: att.content,
-				filename: att.filename,
-				type: att.type,
-				disposition: att.disposition || "attachment",
-				contentId: att.contentId,
-			})),
-			...(in_reply_to ? { headers: buildThreadingHeaders(in_reply_to, references || []) } : {}),
-		}).catch((e) => console.error("Deferred email delivery failed:", (e as Error).message)),
-	)
-	return c.json({ id: messageId, status: "sent" }, 202)
+	return respondToSendResult(c, result)
 })
 
 app.post("/api/v1/mailboxes/:mailboxId/drafts", async (c: AppContext) => {
@@ -544,13 +475,13 @@ async function receiveEmail(
 		}
 	}
 
-	const extractMsgId = (s: string) => {
-		const m = s.match(/<([^>]+)>/)
-		return m ? m[1] : s.trim().split(/\s+/)[0]
-	}
-	const inReplyTo = parsedEmail.inReplyTo ? extractMsgId(parsedEmail.inReplyTo) : null
+	const inReplyTo = parsedEmail.inReplyTo ? normalizeMessageId(parsedEmail.inReplyTo) : null
 	const emailReferences = parsedEmail.references
-		? parsedEmail.references.split(/\s+/).filter(Boolean).map(extractMsgId)
+		? parsedEmail.references
+				.split(/\s+/)
+				.filter(Boolean)
+				.map(normalizeMessageId)
+				.filter((id): id is string => id !== null)
 		: []
 	let threadId = emailReferences[0] || inReplyTo || messageId
 
@@ -562,7 +493,7 @@ async function receiveEmail(
 		if (subjectThread) threadId = subjectThread
 	}
 
-	const originalMessageId = parsedEmail.messageId ? extractMsgId(parsedEmail.messageId) : null
+	const originalMessageId = parsedEmail.messageId ? normalizeMessageId(parsedEmail.messageId) : null
 
 	await stub.createEmail(
 		Folders.INBOX,

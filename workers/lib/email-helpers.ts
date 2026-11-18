@@ -42,6 +42,15 @@ export async function listMailboxes(bucket: R2Bucket): Promise<{ id: string; ema
 // ── Sender Validation ──────────────────────────────────────────────
 
 /**
+ * Lowercase and comma-join a recipient field, or null when it was not given.
+ * The one rule for every recipient field, in the request and in the stored Message.
+ */
+export function joinRecipients(value: string | string[] | undefined): string | null {
+	if (!value) return null
+	return (Array.isArray(value) ? value.join(", ") : value).toLowerCase()
+}
+
+/**
  * Normalise to/from addresses and validate the sender matches the mailbox.
  * Returns the normalised values or throws with a user-facing message.
  */
@@ -50,40 +59,67 @@ export function validateSender(
 	from: string | { email: string; name: string },
 	mailboxId: string,
 ): { toStr: string; fromEmail: string; fromDomain: string } {
-	const toStr = (Array.isArray(to) ? to.join(", ") : to).toLowerCase()
+	const toStr = joinRecipients(to) ?? ""
 	const fromEmail = (typeof from === "string" ? from : from.email).toLowerCase()
 
 	if (fromEmail !== mailboxId.toLowerCase()) {
-		throw new SenderValidationError("From address must match the mailbox email address")
+		throw new SenderValidationError(
+			"sender_mismatch",
+			"From address must match the mailbox email address",
+		)
 	}
 
 	const fromDomain = fromEmail.split("@")[1]
 	if (!fromDomain) {
-		throw new SenderValidationError("Invalid sender email address")
+		throw new SenderValidationError("sender_address_invalid", "Invalid sender email address")
 	}
 
 	return { toStr, fromEmail, fromDomain }
 }
 
+/** The two rules a sender can break. One code per rule, never shared. */
+export type SenderValidationCode = "sender_mismatch" | "sender_address_invalid"
+
+/** A refusal of the sender, carrying the code of the rule it broke. */
 export class SenderValidationError extends Error {
-	constructor(message: string) {
+	readonly code: SenderValidationCode
+
+	constructor(code: SenderValidationCode, message: string) {
 		super(message)
 		this.name = "SenderValidationError"
+		this.code = code
 	}
 }
 
 // ── Message ID ─────────────────────────────────────────────────────
 
 /**
- * Generate an internal UUID and a proper RFC 2822 Message-ID.
+ * Generate the local row id and the RFC 2822 Message-ID the binding sends.
+ * The row id is not a Message-ID: only `outgoingMessageId` reaches the wire.
  */
 export function generateMessageId(fromDomain: string): {
-	messageId: string
+	rowId: string
 	outgoingMessageId: string
 } {
-	const messageId = crypto.randomUUID()
-	const outgoingMessageId = `${messageId}@${fromDomain}`
-	return { messageId, outgoingMessageId }
+	const rowId = crypto.randomUUID()
+	const outgoingMessageId = `${rowId}@${fromDomain}`
+	return { rowId, outgoingMessageId }
+}
+
+// ── Message ID normalisation ───────────────────────────────────────
+
+/**
+ * Reduce a `Message-ID` value to the bare id inside the angle brackets.
+ *
+ * A blank value normalises to null so the caller stores or generates an id
+ * instead of an empty string. One rule, shared by the inbound path and the
+ * outgoing send path.
+ */
+export function normalizeMessageId(raw: string | null | undefined): string | null {
+	const value = raw?.trim()
+	if (!value) return null
+	const bracketed = value.match(/<([^>]+)>/)
+	return bracketed ? bracketed[1] : value.split(/\s+/)[0]
 }
 
 // ── Threading ──────────────────────────────────────────────────────
