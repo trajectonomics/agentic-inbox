@@ -11,21 +11,19 @@
  * delete's sequence.
  */
 import type { Env } from "../types"
-
-/** One Attachment row as the Mailbox Durable Object returns it. */
-export type AttachmentRow = { id: string; email_id: string; filename: string }
+import type { AttachmentKeyRow } from "./attachments"
 
 /** An Attachment row of the Message `e1`. */
-export const receipt: AttachmentRow = { id: "a1", email_id: "e1", filename: "receipt.pdf" }
+export const receipt: AttachmentKeyRow = { id: "a1", email_id: "e1", filename: "receipt.pdf" }
 
 /** A second Attachment row of the Message `e1`. */
-export const note: AttachmentRow = { id: "a2", email_id: "e1", filename: "note.txt" }
+export const note: AttachmentKeyRow = { id: "a2", email_id: "e1", filename: "note.txt" }
 
 /** What a test lets the fake environment answer, and refuse. */
 export interface FakeDeleteEnvOptions {
-	attachmentRows?: Record<string, AttachmentRow[] | null>
-	mailboxRows?: AttachmentRow[]
-	folder?: { isDeletable: boolean; attachments: AttachmentRow[] } | null
+	attachmentRows?: Record<string, AttachmentKeyRow[] | null>
+	mailboxRows?: AttachmentKeyRow[]
+	folder?: { isDeletable: boolean; attachments: AttachmentKeyRow[] } | null
 	refuseDelete?: boolean
 	refuseChatClear?: boolean
 }

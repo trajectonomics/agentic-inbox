@@ -115,10 +115,11 @@ export async function deleteEmailAndFiles(
  * `mailboxId` is the normalized address (decoded and lowercased), as the
  * Mailbox listing object and the EmailAgent are keyed by it.
  *
- * A chat that cannot be cleared is reported as `chat_clear_failed`; the listing
- * object is still there, so the caller reports a failure and the Mailbox can be
- * retried. A Durable Object that throws while its store is removed surfaces as
- * an ordinary error, and the listing object is likewise still there.
+ * A chat that cannot be cleared is reported as `chat_clear_failed`: the
+ * Attachment objects and the store are already gone by then, the listing object
+ * is still there, and repeating the delete finishes it. A Durable Object that
+ * throws while its store is removed surfaces as an ordinary error, and the
+ * listing object is likewise still there.
  */
 export async function deleteMailboxAndFiles(
 	env: Env,
@@ -140,7 +141,7 @@ export async function deleteMailboxAndFiles(
 		return {
 			status: "chat_clear_failed",
 			mailboxId,
-			error: `The Mailbox chat could not be cleared (${cleared.status}), so the Mailbox was not deleted`,
+			error: `The Mailbox chat could not be cleared (${cleared.status}); its mail is already deleted, so deleting the Mailbox again finishes the job`,
 		}
 	}
 

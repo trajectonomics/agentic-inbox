@@ -284,11 +284,15 @@ export class EmailAgent extends AIChatAgent<any> {
 	async onRequest(request: Request): Promise<Response> {
 		const url = new URL(request.url)
 		if (url.pathname === "/deleteMailboxState" && request.method === "POST") {
-			// Clear the chat the way the library's own clear path does: the
-			// persisted rows, the resumable stream data and the in-memory
-			// messages, not the whole storage, which would desync a live agent.
+			// Clear everything of the chat this handler can reach from a
+			// subclass: the persisted messages, the persisted request context
+			// (the last chat body), the resumable stream rows and the in-memory
+			// messages. The library's remaining caches are private fields of a
+			// warm instance, and this Mailbox's listing object goes last, so no
+			// client can reach the agent again.
 			try {
 				this.sql`delete from cf_ai_chat_agent_messages`
+				this.sql`delete from cf_ai_chat_request_context`
 				this._resumableStream.clearAll()
 				this.messages = []
 				return new Response(JSON.stringify({ status: "cleared" }), {

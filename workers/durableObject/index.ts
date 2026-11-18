@@ -4,7 +4,7 @@
 
 import { DurableObject } from "cloudflare:workers"
 import type { SQL } from "drizzle-orm"
-import { and, asc, desc, eq, gte, lte, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/durable-sqlite"
 import { normalizeIsoDateBound } from "../../shared/dates"
 import { Folders } from "../../shared/folders"
@@ -736,11 +736,14 @@ export class MailboxDO extends DurableObject<Env> {
 	 * first.
 	 */
 	async deleteFolderRows(folderId: string): Promise<void> {
+		const folderEmails = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.folder_id, folderId))
+
 		this.db
 			.delete(schema.attachments)
-			.where(
-				sql`${schema.attachments.email_id} IN (SELECT id FROM emails WHERE folder_id = ${folderId})`,
-			)
+			.where(inArray(schema.attachments.email_id, folderEmails))
 			.run()
 		this.db.delete(schema.emails).where(eq(schema.emails.folder_id, folderId)).run()
 		this.db.delete(schema.folders).where(eq(schema.folders.id, folderId)).run()

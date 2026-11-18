@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test"
+import type { AttachmentKeyRow } from "./attachments"
 import { attachmentDeleteErrorMessage } from "./attachments"
 import { deleteMailboxAndFiles } from "./delete"
-import { type AttachmentRow, fakeDeleteEnv, note, receipt } from "./delete-fakes"
+import { fakeDeleteEnv, note, receipt } from "./delete-fakes"
 
 describe("deleting a Mailbox", () => {
 	it("removes its Attachment objects, its store, its chat, then its listing object", async () => {
@@ -22,7 +23,7 @@ describe("deleting a Mailbox", () => {
 	})
 
 	it("keeps two Messages that share a filename apart", async () => {
-		const shared: AttachmentRow = { id: "a7", email_id: "e7", filename: "receipt.pdf" }
+		const shared: AttachmentKeyRow = { id: "a7", email_id: "e7", filename: "receipt.pdf" }
 		const { env, removed } = fakeDeleteEnv({ mailboxRows: [receipt, shared] })
 
 		await deleteMailboxAndFiles(env, "me@example.com")
@@ -71,7 +72,8 @@ describe("deleting a Mailbox", () => {
 		expect(await deleteMailboxAndFiles(env, "me@example.com")).toEqual({
 			status: "chat_clear_failed",
 			mailboxId: "me@example.com",
-			error: "The Mailbox chat could not be cleared (500), so the Mailbox was not deleted",
+			error:
+				"The Mailbox chat could not be cleared (500); its mail is already deleted, so deleting the Mailbox again finishes the job",
 		})
 		expect(order).toEqual([
 			"listMailboxAttachmentRows",
